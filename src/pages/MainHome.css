@@ -1,0 +1,55 @@
+.main-home {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 20px;
+}
+
+.main-home-intro h1 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.35;
+}
+
+.main-home-intro p {
+  margin: 16px 0 0;
+  color: var(--ion-color-medium-shade);
+  line-height: 1.7;
+}
+
+.main-home-features {
+  display: grid;
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.main-home-feature {
+  display: flex;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--ion-color-light);
+}
+
+.main-home-feature ion-icon {
+  flex: 0 0 auto;
+  color: var(--ion-color-primary);
+  font-size: 28px;
+}
+
+.main-home-feature h2,
+.main-home-feature p {
+  margin: 0;
+}
+
+.main-home-feature h2 {
+  font-size: 17px;
+}
+
+.main-home-feature p {
+  margin-top: 4px;
+  color: var(--ion-color-medium-shade);
+}
+
+.main-home-actions {
+  margin-top: 32px;
+}

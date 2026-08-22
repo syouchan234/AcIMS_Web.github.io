@@ -1,0 +1,21 @@
+.auth-form {
+  max-width: 420px;
+  margin: 0 auto;
+  padding-top: 24px;
+}
+
+.auth-error {
+  color: var(--ion-color-danger);
+}
+
+.auth-primary-action {
+  margin-top: 16px;
+}
+
+.auth-secondary-action {
+  margin-top: 8px;
+}
+
+.auth-initialize-action {
+  margin-top: 24px;
+}
