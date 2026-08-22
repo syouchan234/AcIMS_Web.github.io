@@ -44,6 +44,7 @@ const App: React.FC = () => {
     authPassword,
     setupError,
     authError,
+    isBiometricAvailable,
     setMasterPassword,
     setConfirmPassword,
     setAuthPassword,
@@ -51,6 +52,7 @@ const App: React.FC = () => {
     goToPasswordManager,
     handleSetup,
     handleAuth,
+    handleWebAuthnAuth,
     handleClearAllData,
     autoLockSettings,
     updateAutoLockSettings,
@@ -134,6 +136,11 @@ const App: React.FC = () => {
               <IonButton expand="block" onClick={handleAuth} className="auth-primary-action">
                 認証して開く
               </IonButton>
+              {isBiometricAvailable && (
+                <IonButton expand="block" fill="outline" onClick={() => void handleWebAuthnAuth()} className="auth-biometric-action">
+                  生体認証で開く
+                </IonButton>
+              )}
               <IonButton expand="block" fill="clear" onClick={goToHome} className="auth-secondary-action">
                 ホームに戻る
               </IonButton>
