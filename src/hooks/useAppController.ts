@@ -5,6 +5,8 @@ const MASTER_PASSWORD_KEY = 'acims_master_password';
 const AUTO_LOCK_SETTINGS_KEY = 'acims_auto_lock_settings';
 const WEBAUTHN_CREDENTIAL_KEY = 'acims_webauthn_credential';
 
+const normalizeMasterPassword = (password: string) => password.trim();
+
 const toBase64Url = (value: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(value)))
   .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
@@ -36,8 +38,8 @@ const loadAutoLockSettings = (): AutoLockSettings => {
 export const useAppController = () => {
   const hasMasterPassword = () => Boolean(localStorage.getItem(MASTER_PASSWORD_KEY));
   const [showSetup, setShowSetup] = useState(false);
-  const [showHome, setShowHome] = useState(true);
-  const [showPasswordAuth, setShowPasswordAuth] = useState(false);
+  const [showHome, setShowHome] = useState(() => !hasMasterPassword());
+  const [showPasswordAuth, setShowPasswordAuth] = useState(hasMasterPassword);
   const [showPasswordManager, setShowPasswordManager] = useState(false);
   const [masterPassword, setMasterPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -101,15 +103,15 @@ export const useAppController = () => {
     goToPasswordAuth();
   };
   const handleSetup = () => {
-    const trimmedPassword = masterPassword.trim();
+    const trimmedPassword = normalizeMasterPassword(masterPassword);
     if (trimmedPassword.length < 4) { setSetupError('マスターパスワードは4文字以上で設定してください'); return; }
-    if (trimmedPassword !== confirmPassword.trim()) { setSetupError('確認用パスワードが一致しません'); return; }
+    if (trimmedPassword !== normalizeMasterPassword(confirmPassword)) { setSetupError('確認用パスワードが一致しません'); return; }
     localStorage.setItem(MASTER_PASSWORD_KEY, trimmedPassword);
     void registerWebAuthnCredential();
     setShowSetup(false); setShowHome(false); setShowPasswordManager(true); setSetupError('');
   };
   const handleAuth = async () => {
-    if (authPassword === (localStorage.getItem(MASTER_PASSWORD_KEY) || '')) {
+    if (normalizeMasterPassword(authPassword) === (localStorage.getItem(MASTER_PASSWORD_KEY) || '')) {
       await registerWebAuthnCredential();
       setShowPasswordAuth(false); setShowPasswordManager(true); setAuthError(''); return;
     }
@@ -171,10 +173,12 @@ export const useAppController = () => {
     setAutoLockSettings(nextSettings);
   };
   const changeMasterPassword = (currentPassword: string, newPassword: string, confirmation: string) => {
-    if (currentPassword !== localStorage.getItem(MASTER_PASSWORD_KEY)) return '現在のマスターパスワードが違います';
-    if (newPassword.trim().length < 4) return '新しいマスターパスワードは4文字以上で設定してください';
-    if (newPassword !== confirmation) return '確認用パスワードが一致しません';
-    localStorage.setItem(MASTER_PASSWORD_KEY, newPassword);
+    const normalizedCurrentPassword = normalizeMasterPassword(currentPassword);
+    const normalizedNewPassword = normalizeMasterPassword(newPassword);
+    if (normalizedCurrentPassword !== localStorage.getItem(MASTER_PASSWORD_KEY)) return '現在のマスターパスワードが違います';
+    if (normalizedNewPassword.length < 4) return '新しいマスターパスワードは4文字以上で設定してください';
+    if (normalizedNewPassword !== normalizeMasterPassword(confirmation)) return '確認用パスワードが一致しません';
+    localStorage.setItem(MASTER_PASSWORD_KEY, normalizedNewPassword);
     return null;
   };
 

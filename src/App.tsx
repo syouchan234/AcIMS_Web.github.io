@@ -78,7 +78,7 @@ const App: React.FC = () => {
                 <IonInput
                   type="password"
                   value={masterPassword}
-                  onIonChange={(e) => setMasterPassword(e.detail.value ?? '')}
+                  onIonInput={(e) => setMasterPassword(e.detail.value ?? '')}
                   placeholder="4文字以上"
                 />
               </IonItem>
@@ -88,7 +88,7 @@ const App: React.FC = () => {
                 <IonInput
                   type="password"
                   value={confirmPassword}
-                  onIonChange={(e) => setConfirmPassword(e.detail.value ?? '')}
+                  onIonInput={(e) => setConfirmPassword(e.detail.value ?? '')}
                   placeholder="もう一度入力"
                 />
               </IonItem>
@@ -126,7 +126,7 @@ const App: React.FC = () => {
                 <IonInput
                   type="password"
                   value={authPassword}
-                  onIonChange={(e) => setAuthPassword(e.detail.value ?? '')}
+                  onIonInput={(e) => setAuthPassword(e.detail.value ?? '')}
                   placeholder="マスターパスワード"
                 />
               </IonItem>
