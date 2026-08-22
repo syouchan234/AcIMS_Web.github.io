@@ -207,7 +207,7 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
               <thead><tr><th>カテゴリ</th><th>アプリサイト名</th><th>ID</th><th>メールアドレス</th><th>パスワード <IonButton className="toggle-all-button" fill="clear" onClick={toggleAllPasswordsVisibility} size="small">{allPasswordsVisible ? 'すべて隠す' : 'すべて表示'}</IonButton></th><th>URL</th><th>備考</th><th>操作</th></tr></thead>
               <tbody>{filteredPasswords.map(renderPasswordRow)}</tbody>
             </table></div>}
-      <IonFab horizontal="end" slot="fixed" vertical="bottom"><IonFabButton aria-label="新規追加" onClick={() => onOpenModal()}><IonIcon icon={addOutline} /></IonFabButton></IonFab>
+      <IonFab className="add-password-fab" horizontal="end" slot="fixed" vertical="bottom"><IonFabButton aria-label="新規追加" onClick={() => onOpenModal()}><IonIcon icon={addOutline} /></IonFabButton></IonFab>
     </IonContent>
     <IonModal isOpen={isModalOpen} onDidDismiss={onCloseModal}>
       <IonHeader><IonToolbar><IonTitle>{editingId !== null ? 'パスワード編集' : 'パスワード新規追加'}</IonTitle><IonButtons slot="end"><IonButton onClick={onCloseModal}>閉じる</IonButton></IonButtons></IonToolbar></IonHeader>
