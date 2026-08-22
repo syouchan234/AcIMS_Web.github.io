@@ -6,6 +6,7 @@ import { defineConfig } from 'vite'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: '/AcIMS_Web.github.io/',
   plugins: [
     react(),
     legacy()
