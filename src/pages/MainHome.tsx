@@ -23,6 +23,14 @@ const MainHome: React.FC<MainHomeProps> = ({ onOpenPasswordManager }) => {
         <section className="main-home-actions">
           <IonButton color="primary" expand="block" onClick={onOpenPasswordManager}>パスワード管理を開く</IonButton>
         </section>
+        <section className="install-guide" aria-labelledby="install-guide-title">
+          <h2 id="install-guide-title">スマホアプリとして使う</h2>
+          <p>ホーム画面に追加すると、アプリのように起動できます。</p>
+          <ul>
+            <li><a href="https://support.apple.com/ja-jp/guide/iphone/iph42ab2f3a7/ios" rel="noreferrer" target="_blank">iPhone（Safari）の追加方法</a></li>
+            <li><a href="https://support.google.com/chrome/answer/9658361?hl=ja" rel="noreferrer" target="_blank">Android（Chrome）の追加方法</a></li>
+          </ul>
+        </section>
       </main>
     </IonContent>
   </IonPage>;

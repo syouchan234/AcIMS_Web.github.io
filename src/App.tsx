@@ -2,6 +2,7 @@ import React from 'react';
 import {
   IonApp,
   IonButton,
+  IonCheckbox,
   IonContent,
   IonHeader,
   IonInput,
@@ -45,6 +46,7 @@ const App: React.FC = () => {
     setupError,
     authError,
     isBiometricAvailable,
+    encryptionKey,
     setMasterPassword,
     setConfirmPassword,
     setAuthPassword,
@@ -56,6 +58,8 @@ const App: React.FC = () => {
     handleClearAllData,
     autoLockSettings,
     updateAutoLockSettings,
+    autoAuthEnabled,
+    updateAutoAuthEnabled,
     changeMasterPassword,
   } = useAppController();
 
@@ -78,7 +82,7 @@ const App: React.FC = () => {
                 <IonInput
                   type="password"
                   value={masterPassword}
-                  onIonChange={(e) => setMasterPassword(e.detail.value ?? '')}
+                  onIonInput={(e) => setMasterPassword(e.detail.value ?? '')}
                   placeholder="4文字以上"
                 />
               </IonItem>
@@ -88,7 +92,7 @@ const App: React.FC = () => {
                 <IonInput
                   type="password"
                   value={confirmPassword}
-                  onIonChange={(e) => setConfirmPassword(e.detail.value ?? '')}
+                  onIonInput={(e) => setConfirmPassword(e.detail.value ?? '')}
                   placeholder="もう一度入力"
                 />
               </IonItem>
@@ -126,9 +130,15 @@ const App: React.FC = () => {
                 <IonInput
                   type="password"
                   value={authPassword}
-                  onIonChange={(e) => setAuthPassword(e.detail.value ?? '')}
+                  onIonInput={(e) => setAuthPassword(e.detail.value ?? '')}
                   placeholder="マスターパスワード"
                 />
+              </IonItem>
+
+              <IonItem className="auth-auto-auth-toggle">
+                <IonCheckbox checked={autoAuthEnabled} onIonChange={(e) => updateAutoAuthEnabled(e.detail.checked)}>
+                  端末認証を自動実行する
+                </IonCheckbox>
               </IonItem>
 
               {authError && <p className="auth-error">{authError}</p>}
@@ -138,7 +148,7 @@ const App: React.FC = () => {
               </IonButton>
               {isBiometricAvailable && (
                 <IonButton expand="block" fill="outline" onClick={() => void handleWebAuthnAuth()} className="auth-biometric-action">
-                  生体認証で開く
+                  端末認証で開く
                 </IonButton>
               )}
               <IonButton expand="block" fill="clear" onClick={goToHome} className="auth-secondary-action">
@@ -164,6 +174,7 @@ const App: React.FC = () => {
 
       {showPasswordManager && (
         <PasswordManager
+          encryptionKey={encryptionKey}
           autoLockSettings={autoLockSettings}
           onAutoLockSettingsChange={updateAutoLockSettings}
           onBack={goToHome}

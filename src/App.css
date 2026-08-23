@@ -20,6 +20,16 @@
   margin-top: 8px;
 }
 
+.auth-auto-auth-toggle {
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  margin-top: 12px;
+}
+
+.auth-auto-auth-toggle ion-checkbox {
+  width: 100%;
+}
+
 .auth-initialize-action {
   margin-top: 24px;
 }

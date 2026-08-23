@@ -23,8 +23,8 @@ export interface PasswordManagerViewProps {
   onSave: () => void;
   onDelete: (id: number | undefined) => void;
   onFormDataChange: (formData: PasswordFormData) => void;
-  onImport: (entries: PasswordEntry[]) => Promise<void>;
+  onImport: (entries: Omit<PasswordEntry, 'id' | 'createdAt' | 'updatedAt'>[]) => Promise<void>;
   autoLockSettings: AutoLockSettings;
   onAutoLockSettingsChange: (settings: AutoLockSettings) => void;
-  onMasterPasswordChange: (currentPassword: string, newPassword: string, confirmation: string) => string | null;
+  onMasterPasswordChange: (currentPassword: string, newPassword: string, confirmation: string) => Promise<string | null>;
 }

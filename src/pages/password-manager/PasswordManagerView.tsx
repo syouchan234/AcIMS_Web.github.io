@@ -58,11 +58,32 @@ const generatePassword = (settings: GeneratorSettings) => {
   return password.join('');
 };
 
-const isImportEntry = (entry: unknown): entry is PasswordEntry => {
+interface DesktopPasswordEntry {
+  InformationId: string;
+  Category: string;
+  AppSiteName: string;
+  UserId: string;
+  Email: string;
+  Password: string;
+  Url: string;
+  Memo: string;
+}
+
+const isImportEntry = (entry: unknown): entry is DesktopPasswordEntry => {
   if (!entry || typeof entry !== 'object') return false;
-  return ['category', 'appName', 'userId', 'email', 'password', 'url', 'memo']
+  return ['InformationId', 'Category', 'AppSiteName', 'UserId', 'Email', 'Password', 'Url', 'Memo']
     .every((key) => typeof (entry as Record<string, unknown>)[key] === 'string');
 };
+
+const toPasswordEntry = (entry: DesktopPasswordEntry): Omit<PasswordEntry, 'id' | 'createdAt' | 'updatedAt'> => ({
+  category: entry.Category,
+  appName: entry.AppSiteName,
+  userId: entry.UserId,
+  email: entry.Email,
+  password: entry.Password,
+  url: entry.Url,
+  memo: entry.Memo,
+});
 
 const getPasswordMask = (password: string) => Array.from(password, () => '•').join('');
 
@@ -158,7 +179,16 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
     setIsGeneratorOpen(true);
   };
   const exportPasswords = () => {
-    const exportData = passwords.map(({ category, appName, userId, email, password, url, memo }) => ({ category, appName, userId, email, password, url, memo }));
+    const exportData: DesktopPasswordEntry[] = passwords.map(({ id, category, appName, userId, email, password, url, memo }) => ({
+      InformationId: id === undefined ? '' : String(id),
+      Category: category,
+      AppSiteName: appName,
+      UserId: userId,
+      Email: email,
+      Password: password,
+      Url: url,
+      Memo: memo,
+    }));
     const url = URL.createObjectURL(new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' }));
     const link = document.createElement('a');
     link.href = url; link.download = `acims-passwords-${new Date().toISOString().slice(0, 10)}.json`; link.click();
@@ -172,7 +202,7 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
       const data: unknown = JSON.parse(await file.text());
       if (!Array.isArray(data) || !data.every(isImportEntry)) throw new Error('invalid');
       if (!window.confirm('現在の登録パスワードを置き換えてインポートします。よろしいですか？')) return;
-      await onImport(data as PasswordEntry[]);
+      await onImport(data.map(toPasswordEntry));
       setToastMessage('データをインポートしました');
     } catch (error) {
       console.error('インポートエラー:', error);
@@ -183,8 +213,8 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
     onAutoLockSettingsChange(autoLockDraft);
     setToastMessage('自動ロック設定を保存しました');
   };
-  const changeMasterPassword = () => {
-    const error = onMasterPasswordChange(currentMasterPassword, newMasterPassword, masterPasswordConfirmation);
+  const changeMasterPassword = async () => {
+    const error = await onMasterPasswordChange(currentMasterPassword, newMasterPassword, masterPasswordConfirmation);
     if (error) { setToastMessage(error); return; }
     setCurrentMasterPassword(''); setNewMasterPassword(''); setMasterPasswordConfirmation('');
     setToastMessage('マスターパスワードを変更しました');
@@ -253,15 +283,15 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
     <IonModal isOpen={isModalOpen} onDidDismiss={onCloseModal}>
       <IonHeader><IonToolbar><IonTitle>{editingId !== null ? 'パスワード編集' : 'パスワード新規追加'}</IonTitle><IonButtons slot="end"><IonButton onClick={onCloseModal}>閉じる</IonButton></IonButtons></IonToolbar></IonHeader>
       <IonContent><div className="form-container">
-        <IonItem><IonLabel position="stacked">カテゴリ *</IonLabel><IonInput value={formData.category} onIonChange={(event) => updateFormData('category', event.detail.value || '')} placeholder="例: メール、SNS、銀行" /></IonItem>
+        <IonItem><IonLabel position="stacked">カテゴリ *</IonLabel><IonInput value={formData.category} onIonInput={(event) => updateFormData('category', event.detail.value || '')} placeholder="例: メール、SNS、銀行" /></IonItem>
         {categories.length > 0 && <IonItem><IonLabel>登録済みカテゴリから選択</IonLabel><IonSelect aria-label="登録済みカテゴリから選択" interface="popover" onIonChange={(event) => updateFormData('category', event.detail.value)} placeholder="カテゴリを選択"><IonSelectOption value="">選択しない</IonSelectOption>{categories.map((category) => <IonSelectOption key={category} value={category}>{category}</IonSelectOption>)}</IonSelect></IonItem>}
-        <IonItem><IonLabel position="stacked">アプリサイト名 *</IonLabel><IonInput value={formData.appName} onIonChange={(event) => updateFormData('appName', event.detail.value || '')} placeholder="例: Gmail、Twitter" /></IonItem>
-        <IonItem><IonLabel position="stacked">ID</IonLabel><IonInput value={formData.userId} onIonChange={(event) => updateFormData('userId', event.detail.value || '')} placeholder="ユーザーID" /></IonItem>
-        <IonItem><IonLabel position="stacked">メールアドレス</IonLabel><IonInput value={formData.email} onIonChange={(event) => updateFormData('email', event.detail.value || '')} placeholder="メールアドレス" type="email" /></IonItem>
-        <IonItem><IonLabel position="stacked">パスワード</IonLabel><IonInput value={formData.password} onIonChange={(event) => updateFormData('password', event.detail.value || '')} placeholder="パスワード" type="password" /></IonItem>
+        <IonItem><IonLabel position="stacked">アプリサイト名 *</IonLabel><IonInput value={formData.appName} onIonInput={(event) => updateFormData('appName', event.detail.value || '')} placeholder="例: Gmail、Twitter" /></IonItem>
+        <IonItem><IonLabel position="stacked">ID</IonLabel><IonInput value={formData.userId} onIonInput={(event) => updateFormData('userId', event.detail.value || '')} placeholder="ユーザーID" /></IonItem>
+        <IonItem><IonLabel position="stacked">メールアドレス</IonLabel><IonInput value={formData.email} onIonInput={(event) => updateFormData('email', event.detail.value || '')} placeholder="メールアドレス" type="email" /></IonItem>
+        <IonItem><IonLabel position="stacked">パスワード</IonLabel><IonInput value={formData.password} onIonInput={(event) => updateFormData('password', event.detail.value || '')} placeholder="パスワード" type="password" /></IonItem>
         {editingId === null && <IonButton className="generate-password-button" fill="outline" onClick={openGenerator}><IonIcon icon={addOutline} slot="start" />パスワードを生成</IonButton>}
-        <IonItem><IonLabel position="stacked">URL</IonLabel><IonInput value={formData.url} onIonChange={(event) => updateFormData('url', event.detail.value || '')} placeholder="https://example.com" type="url" /></IonItem>
-        <IonItem><IonLabel position="stacked">備考</IonLabel><IonTextarea autoGrow value={formData.memo} onIonChange={(event) => updateFormData('memo', event.detail.value || '')} placeholder="メモ" /></IonItem>
+        <IonItem><IonLabel position="stacked">URL</IonLabel><IonInput value={formData.url} onIonInput={(event) => updateFormData('url', event.detail.value || '')} placeholder="https://example.com" type="url" /></IonItem>
+        <IonItem><IonLabel position="stacked">備考</IonLabel><IonTextarea autoGrow value={formData.memo} onIonInput={(event) => updateFormData('memo', event.detail.value || '')} placeholder="メモ" /></IonItem>
         <div className="form-actions"><IonButton color="primary" expand="block" onClick={onSave}>保存</IonButton><IonButton color="secondary" expand="block" onClick={onCloseModal}>キャンセル</IonButton></div>
       </div></IonContent>
     </IonModal>

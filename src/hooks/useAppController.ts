@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { passwordDb } from '../services/passwordDb';
+import { createMasterPasswordRecord, type StoredMasterPassword, verifyMasterPassword } from '../services/security';
 
 const MASTER_PASSWORD_KEY = 'acims_master_password';
 const AUTO_LOCK_SETTINGS_KEY = 'acims_auto_lock_settings';
+const AUTO_AUTH_SETTINGS_KEY = 'acims_auto_auth_enabled';
 const WEBAUTHN_CREDENTIAL_KEY = 'acims_webauthn_credential';
+
+const normalizeMasterPassword = (password: string) => password.trim();
 
 const toBase64Url = (value: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(value)))
   .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -33,11 +37,18 @@ const loadAutoLockSettings = (): AutoLockSettings => {
   }
 };
 
+const loadAutoAuthEnabled = () => localStorage.getItem(AUTO_AUTH_SETTINGS_KEY) === 'true';
+
 export const useAppController = () => {
-  const hasMasterPassword = () => Boolean(localStorage.getItem(MASTER_PASSWORD_KEY));
+  const getStoredMasterPassword = (): StoredMasterPassword | string | null => {
+    const stored = localStorage.getItem(MASTER_PASSWORD_KEY);
+    if (!stored) return null;
+    try { return JSON.parse(stored) as StoredMasterPassword; } catch { return stored; }
+  };
+  const hasMasterPassword = () => Boolean(getStoredMasterPassword());
   const [showSetup, setShowSetup] = useState(false);
-  const [showHome, setShowHome] = useState(true);
-  const [showPasswordAuth, setShowPasswordAuth] = useState(false);
+  const [showHome, setShowHome] = useState(() => !hasMasterPassword());
+  const [showPasswordAuth, setShowPasswordAuth] = useState(hasMasterPassword);
   const [showPasswordManager, setShowPasswordManager] = useState(false);
   const [masterPassword, setMasterPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -45,6 +56,8 @@ export const useAppController = () => {
   const [setupError, setSetupError] = useState('');
   const [authError, setAuthError] = useState('');
   const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
+  const [autoAuthEnabled, setAutoAuthEnabled] = useState(loadAutoAuthEnabled);
+  const [encryptionKey, setEncryptionKey] = useState<CryptoKey | null>(null);
   const [autoLockSettings, setAutoLockSettings] = useState<AutoLockSettings>(loadAutoLockSettings);
   const autoLockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -74,6 +87,10 @@ export const useAppController = () => {
     });
     return () => { active = false; };
   }, [showPasswordAuth]);
+  useEffect(() => {
+    if (!showPasswordAuth || !autoAuthEnabled || !isBiometricAvailable || !encryptionKey) return;
+    void handleWebAuthnAuth();
+  }, [autoAuthEnabled, encryptionKey, isBiometricAvailable, showPasswordAuth]);
   const lockPasswordManager = useCallback(() => {
     setShowSetup(false); setShowHome(false); setShowPasswordAuth(true); setShowPasswordManager(false);
     setAuthPassword(''); setAuthError('');
@@ -100,16 +117,31 @@ export const useAppController = () => {
     }
     goToPasswordAuth();
   };
-  const handleSetup = () => {
-    const trimmedPassword = masterPassword.trim();
+  const handleSetup = async () => {
+    const trimmedPassword = normalizeMasterPassword(masterPassword);
     if (trimmedPassword.length < 4) { setSetupError('マスターパスワードは4文字以上で設定してください'); return; }
-    if (trimmedPassword !== confirmPassword.trim()) { setSetupError('確認用パスワードが一致しません'); return; }
-    localStorage.setItem(MASTER_PASSWORD_KEY, trimmedPassword);
+    if (trimmedPassword !== normalizeMasterPassword(confirmPassword)) { setSetupError('確認用パスワードが一致しません'); return; }
+    const { record, key } = await createMasterPasswordRecord(trimmedPassword);
+    localStorage.setItem(MASTER_PASSWORD_KEY, JSON.stringify(record));
+    setEncryptionKey(key);
     void registerWebAuthnCredential();
     setShowSetup(false); setShowHome(false); setShowPasswordManager(true); setSetupError('');
   };
   const handleAuth = async () => {
-    if (authPassword === (localStorage.getItem(MASTER_PASSWORD_KEY) || '')) {
+    const stored = getStoredMasterPassword();
+    const normalizedPassword = normalizeMasterPassword(authPassword);
+    let key: CryptoKey | null = null;
+    if (typeof stored === 'string') {
+      if (normalizedPassword === stored) {
+        const created = await createMasterPasswordRecord(stored);
+        localStorage.setItem(MASTER_PASSWORD_KEY, JSON.stringify(created.record));
+        key = created.key;
+      }
+    } else if (stored) {
+      try { key = await verifyMasterPassword(normalizedPassword, stored); } catch { key = null; }
+    }
+    if (key) {
+      setEncryptionKey(key);
       await registerWebAuthnCredential();
       setShowPasswordAuth(false); setShowPasswordManager(true); setAuthError(''); return;
     }
@@ -151,18 +183,24 @@ export const useAppController = () => {
           timeout: 60000,
         },
       });
+      if (!encryptionKey) {
+        setAuthError('この端末ではパスワード入力後に端末認証を利用してください');
+        return;
+      }
       setShowPasswordAuth(false); setShowPasswordManager(true); setAuthError('');
     } catch {
-      setAuthError('生体認証に失敗しました。マスターパスワードを入力してください');
+      setAuthError('端末認証に失敗しました。マスターパスワードを入力してください');
     }
   };
   const handleLogout = () => {
     localStorage.removeItem(MASTER_PASSWORD_KEY);
+    localStorage.removeItem(WEBAUTHN_CREDENTIAL_KEY);
     setShowSetup(true); setShowHome(false); setShowPasswordAuth(false); setShowPasswordManager(false);
   };
   const handleClearAllData = async () => {
     await passwordDb.clearAllPasswords();
     localStorage.removeItem(MASTER_PASSWORD_KEY);
+    localStorage.removeItem(WEBAUTHN_CREDENTIAL_KEY);
     goToHome();
   };
   const updateAutoLockSettings = (settings: AutoLockSettings) => {
@@ -170,19 +208,32 @@ export const useAppController = () => {
     localStorage.setItem(AUTO_LOCK_SETTINGS_KEY, JSON.stringify(nextSettings));
     setAutoLockSettings(nextSettings);
   };
-  const changeMasterPassword = (currentPassword: string, newPassword: string, confirmation: string) => {
-    if (currentPassword !== localStorage.getItem(MASTER_PASSWORD_KEY)) return '現在のマスターパスワードが違います';
-    if (newPassword.trim().length < 4) return '新しいマスターパスワードは4文字以上で設定してください';
-    if (newPassword !== confirmation) return '確認用パスワードが一致しません';
-    localStorage.setItem(MASTER_PASSWORD_KEY, newPassword);
+  const updateAutoAuthEnabled = (enabled: boolean) => {
+    localStorage.setItem(AUTO_AUTH_SETTINGS_KEY, String(enabled));
+    setAutoAuthEnabled(enabled);
+  };
+  const changeMasterPassword = async (currentPassword: string, newPassword: string, confirmation: string) => {
+    const normalizedCurrentPassword = normalizeMasterPassword(currentPassword);
+    const normalizedNewPassword = normalizeMasterPassword(newPassword);
+    const stored = getStoredMasterPassword();
+    if (!stored || typeof stored === 'string') return 'マスターパスワードのデータが古いため、再ログインしてください';
+    const currentKey = await verifyMasterPassword(normalizedCurrentPassword, stored);
+    if (!currentKey) return '現在のマスターパスワードが違います';
+    if (normalizedNewPassword.length < 4) return '新しいマスターパスワードは4文字以上で設定してください';
+    if (normalizedNewPassword !== normalizeMasterPassword(confirmation)) return '確認用パスワードが一致しません';
+    const { record, key } = await createMasterPasswordRecord(normalizedNewPassword);
+    const entries = await passwordDb.getAllPasswords(currentKey);
+    await passwordDb.replaceAllPasswords(entries.map(({ category, appName, userId, email, password, url, memo }) => ({ category, appName, userId, email, password, url, memo })), key);
+    localStorage.setItem(MASTER_PASSWORD_KEY, JSON.stringify(record));
+    setEncryptionKey(key);
     return null;
   };
 
   return {
     showSetup, showHome, showPasswordAuth, showPasswordManager,
-    masterPassword, confirmPassword, authPassword, setupError, authError, isBiometricAvailable,
+    masterPassword, confirmPassword, authPassword, setupError, authError, isBiometricAvailable, autoAuthEnabled, encryptionKey,
     setMasterPassword, setConfirmPassword, setAuthPassword,
     goToHome, goToPasswordManager, handleSetup, handleAuth, handleWebAuthnAuth, handleLogout, handleClearAllData,
-    autoLockSettings, updateAutoLockSettings, changeMasterPassword,
+    autoLockSettings, updateAutoLockSettings, updateAutoAuthEnabled, changeMasterPassword,
   };
 };

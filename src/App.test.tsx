@@ -26,8 +26,6 @@ describe('App flow', () => {
     window.localStorage.setItem('acims_master_password', 'secret123');
     render(<App />);
 
-    fireEvent.click(screen.getByText('パスワード管理を開く'));
-
     expect(screen.getByText('マスターパスワードを入力')).toBeInTheDocument();
     expect(screen.getByText('認証して開く')).toBeInTheDocument();
   });

@@ -3,13 +3,14 @@ import { usePasswordManager } from './password-manager/usePasswordManager';
 import type { AutoLockSettings } from '../hooks/useAppController';
 
 interface PasswordManagerProps {
+  encryptionKey: CryptoKey | null;
   onBack?: () => void;
   autoLockSettings: AutoLockSettings;
   onAutoLockSettingsChange: (settings: AutoLockSettings) => void;
-  onMasterPasswordChange: (currentPassword: string, newPassword: string, confirmation: string) => string | null;
+  onMasterPasswordChange: (currentPassword: string, newPassword: string, confirmation: string) => Promise<string | null>;
 }
 
-const PasswordManager: React.FC<PasswordManagerProps> = ({ onBack, autoLockSettings, onAutoLockSettingsChange, onMasterPasswordChange }) => {
+const PasswordManager: React.FC<PasswordManagerProps> = ({ encryptionKey, onBack, autoLockSettings, onAutoLockSettingsChange, onMasterPasswordChange }) => {
   const {
     setFormData,
     handleOpenModal,
@@ -18,7 +19,7 @@ const PasswordManager: React.FC<PasswordManagerProps> = ({ onBack, autoLockSetti
     handleDelete,
     handleImport,
     ...passwordManager
-  } = usePasswordManager();
+  } = usePasswordManager(encryptionKey);
 
   return (
     <PasswordManagerView
