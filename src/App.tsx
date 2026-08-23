@@ -2,6 +2,7 @@ import React from 'react';
 import {
   IonApp,
   IonButton,
+  IonCheckbox,
   IonContent,
   IonHeader,
   IonInput,
@@ -9,7 +10,6 @@ import {
   IonLabel,
   IonPage,
   IonTitle,
-  IonToggle,
   IonToolbar,
   setupIonicReact,
 } from '@ionic/react';
@@ -136,8 +136,9 @@ const App: React.FC = () => {
               </IonItem>
 
               <IonItem className="auth-auto-auth-toggle">
-                <IonLabel>端末認証を自動実行する</IonLabel>
-                <IonToggle checked={autoAuthEnabled} onIonChange={(e) => updateAutoAuthEnabled(e.detail.checked)} />
+                <IonCheckbox checked={autoAuthEnabled} onIonChange={(e) => updateAutoAuthEnabled(e.detail.checked)}>
+                  端末認証を自動実行する
+                </IonCheckbox>
               </IonItem>
 
               {authError && <p className="auth-error">{authError}</p>}
