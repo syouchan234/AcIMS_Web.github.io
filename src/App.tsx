@@ -9,6 +9,7 @@ import {
   IonLabel,
   IonPage,
   IonTitle,
+  IonToggle,
   IonToolbar,
   setupIonicReact,
 } from '@ionic/react';
@@ -45,6 +46,7 @@ const App: React.FC = () => {
     setupError,
     authError,
     isBiometricAvailable,
+    encryptionKey,
     setMasterPassword,
     setConfirmPassword,
     setAuthPassword,
@@ -56,6 +58,8 @@ const App: React.FC = () => {
     handleClearAllData,
     autoLockSettings,
     updateAutoLockSettings,
+    autoAuthEnabled,
+    updateAutoAuthEnabled,
     changeMasterPassword,
   } = useAppController();
 
@@ -131,6 +135,11 @@ const App: React.FC = () => {
                 />
               </IonItem>
 
+              <IonItem className="auth-auto-auth-toggle">
+                <IonLabel>端末認証を自動実行する</IonLabel>
+                <IonToggle checked={autoAuthEnabled} onIonChange={(e) => updateAutoAuthEnabled(e.detail.checked)} />
+              </IonItem>
+
               {authError && <p className="auth-error">{authError}</p>}
 
               <IonButton expand="block" onClick={handleAuth} className="auth-primary-action">
@@ -138,7 +147,7 @@ const App: React.FC = () => {
               </IonButton>
               {isBiometricAvailable && (
                 <IonButton expand="block" fill="outline" onClick={() => void handleWebAuthnAuth()} className="auth-biometric-action">
-                  生体認証で開く
+                  端末認証で開く
                 </IonButton>
               )}
               <IonButton expand="block" fill="clear" onClick={goToHome} className="auth-secondary-action">
@@ -164,6 +173,7 @@ const App: React.FC = () => {
 
       {showPasswordManager && (
         <PasswordManager
+          encryptionKey={encryptionKey}
           autoLockSettings={autoLockSettings}
           onAutoLockSettingsChange={updateAutoLockSettings}
           onBack={goToHome}
