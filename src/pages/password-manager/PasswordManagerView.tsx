@@ -8,6 +8,7 @@ import { addOutline, copyOutline, eyeOffOutline, eyeOutline, settingsOutline } f
 import type { PasswordEntry } from '../../services/passwordDb';
 import type { PasswordManagerViewProps } from './types';
 import '../PasswordManager.css';
+import ProductLinks from '../../components/ProductLinks';
 
 interface GeneratorSettings {
   length: number;
@@ -307,6 +308,7 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
         <h2>データ</h2><p>エクスポートしたファイルには登録パスワードが平文で含まれます。安全な場所に保管してください。</p><IonButton expand="block" fill="outline" onClick={exportPasswords}>データをエクスポート</IonButton><input accept="application/json" className="import-input" onChange={importPasswords} ref={importInputRef} type="file" /><IonButton expand="block" fill="outline" onClick={() => importInputRef.current?.click()}>データをインポート</IonButton>
         <h2>マスターパスワードの変更</h2><IonItem><IonLabel position="stacked">現在のパスワード</IonLabel><IonInput onIonInput={(event) => setCurrentMasterPassword(event.detail.value ?? '')} type="password" value={currentMasterPassword} /></IonItem><IonItem><IonLabel position="stacked">新しいパスワード</IonLabel><IonInput onIonInput={(event) => setNewMasterPassword(event.detail.value ?? '')} type="password" value={newMasterPassword} /></IonItem><IonItem><IonLabel position="stacked">新しいパスワード（確認）</IonLabel><IonInput onIonInput={(event) => setMasterPasswordConfirmation(event.detail.value ?? '')} type="password" value={masterPasswordConfirmation} /></IonItem><IonButton expand="block" fill="outline" onClick={changeMasterPassword}>マスターパスワードを変更</IonButton>
         <div className="auto-lock-section"><h2>自動ロック</h2><IonItem className="auto-lock-toggle-item"><IonLabel>自動ロックを有効にする</IonLabel><IonToggle checked={autoLockDraft.enabled} onIonChange={(event) => setAutoLockDraft({ ...autoLockDraft, enabled: event.detail.checked })} /></IonItem><IonItem className="auto-lock-duration-item" disabled={!autoLockDraft.enabled}><IonLabel>ロックまでの時間（分）</IonLabel><IonInput inputMode="numeric" max="60" min="1" onIonInput={(event) => setAutoLockDraft({ ...autoLockDraft, minutes: Number(event.detail.value) || 1 })} type="number" value={autoLockDraft.minutes} /></IonItem><IonButton expand="block" onClick={saveAppSettings}>自動ロック設定を保存</IonButton></div>
+        <ProductLinks />
       </div></IonContent>
     </IonModal>
     <IonModal isOpen={memoDetail !== null} onDidDismiss={() => setMemoDetail(null)}>

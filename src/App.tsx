@@ -15,6 +15,7 @@ import {
 } from '@ionic/react';
 import MainHome from './pages/MainHome';
 import PasswordManager from './pages/PasswordManager';
+import ProductLinks from './components/ProductLinks';
 import { useAppController } from './hooks/useAppController';
 import './App.css';
 
@@ -102,6 +103,7 @@ const App: React.FC = () => {
               <IonButton expand="block" onClick={handleSetup} className="auth-primary-action">
                 設定して開始
               </IonButton>
+              <ProductLinks />
             </div>
           </IonContent>
         </IonPage>
@@ -146,7 +148,7 @@ const App: React.FC = () => {
               <IonButton expand="block" onClick={handleAuth} className="auth-primary-action">
                 認証して開く
               </IonButton>
-              {isBiometricAvailable && (
+              {isBiometricAvailable && encryptionKey && (
                 <IonButton expand="block" fill="outline" onClick={() => void handleWebAuthnAuth()} className="auth-biometric-action">
                   端末認証で開く
                 </IonButton>
@@ -167,6 +169,7 @@ const App: React.FC = () => {
               >
                 初期化
               </IonButton>
+              <ProductLinks />
             </div>
           </IonContent>
         </IonPage>

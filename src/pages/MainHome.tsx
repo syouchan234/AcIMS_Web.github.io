@@ -1,5 +1,6 @@
 import { IonButton, IonContent, IonHeader, IonIcon, IonPage, IonTitle, IonToolbar } from '@ionic/react';
 import { lockClosedOutline, searchOutline, shieldCheckmarkOutline } from 'ionicons/icons';
+import ProductLinks from '../components/ProductLinks';
 import './MainHome.css';
 
 interface MainHomeProps {
@@ -8,7 +9,7 @@ interface MainHomeProps {
 
 const MainHome: React.FC<MainHomeProps> = ({ onOpenPasswordManager }) => {
   return <IonPage>
-    <IonHeader><IonToolbar><IonTitle>アカウント情報の一括管理</IonTitle></IonToolbar></IonHeader>
+    <IonHeader><IonToolbar><IonTitle>AcIMS</IonTitle></IonToolbar></IonHeader>
     <IonContent>
       <main className="main-home">
         <section className="main-home-intro">
@@ -31,6 +32,7 @@ const MainHome: React.FC<MainHomeProps> = ({ onOpenPasswordManager }) => {
             <li><a href="https://support.google.com/chrome/answer/9658361?hl=ja" rel="noreferrer" target="_blank">Android（Chrome）の追加方法</a></li>
           </ul>
         </section>
+        <ProductLinks />
       </main>
     </IonContent>
   </IonPage>;

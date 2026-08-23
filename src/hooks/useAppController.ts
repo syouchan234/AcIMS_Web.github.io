@@ -183,10 +183,7 @@ export const useAppController = () => {
           timeout: 60000,
         },
       });
-      if (!encryptionKey) {
-        setAuthError('この端末ではパスワード入力後に端末認証を利用してください');
-        return;
-      }
+      if (!encryptionKey) return;
       setShowPasswordAuth(false); setShowPasswordManager(true); setAuthError('');
     } catch {
       setAuthError('端末認証に失敗しました。マスターパスワードを入力してください');

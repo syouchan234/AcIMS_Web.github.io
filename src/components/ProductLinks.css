@@ -1,0 +1,16 @@
+.product-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 16px;
+  margin-top: 32px;
+  padding: 16px 0 max(16px, var(--ion-safe-area-bottom, 0px));
+  border-top: 1px solid var(--ion-color-light-shade);
+  font-size: 13px;
+  text-align: center;
+}
+
+.product-links a {
+  color: var(--ion-color-primary);
+  overflow-wrap: anywhere;
+}
