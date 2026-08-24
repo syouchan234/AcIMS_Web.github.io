@@ -4,7 +4,6 @@ import { createMasterPasswordRecord, type StoredMasterPassword, verifyMasterPass
 
 const MASTER_PASSWORD_KEY = 'acims_master_password';
 const AUTO_LOCK_SETTINGS_KEY = 'acims_auto_lock_settings';
-const AUTO_AUTH_SETTINGS_KEY = 'acims_auto_auth_enabled';
 const WEBAUTHN_CREDENTIAL_KEY = 'acims_webauthn_credential';
 
 const normalizeMasterPassword = (password: string) => password.trim();
@@ -23,6 +22,16 @@ const isWebAuthnAvailable = () => typeof window !== 'undefined'
   && !!window.PublicKeyCredential
   && !!navigator.credentials;
 
+// WebAuthn は PC の Windows Hello などでも利用できるため、画面幅だけでは
+// スマホ版に限定できない。iPadOS は Mac の User-Agent を返すことがあるので、
+// タッチポイントもあわせて判定する。
+const isSmartphone = () => {
+  if (typeof navigator === 'undefined') return false;
+  const userAgent = navigator.userAgent;
+  return /Android|iPhone|iPod|IEMobile|Opera Mini/i.test(userAgent)
+    || (/iPad|Macintosh/i.test(userAgent) && navigator.maxTouchPoints > 1);
+};
+
 export interface AutoLockSettings {
   enabled: boolean;
   minutes: number;
@@ -36,8 +45,6 @@ const loadAutoLockSettings = (): AutoLockSettings => {
     return { enabled: false, minutes: 5 };
   }
 };
-
-const loadAutoAuthEnabled = () => localStorage.getItem(AUTO_AUTH_SETTINGS_KEY) === 'true';
 
 export const useAppController = () => {
   const getStoredMasterPassword = (): StoredMasterPassword | string | null => {
@@ -56,10 +63,11 @@ export const useAppController = () => {
   const [setupError, setSetupError] = useState('');
   const [authError, setAuthError] = useState('');
   const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
-  const [autoAuthEnabled, setAutoAuthEnabled] = useState(loadAutoAuthEnabled);
+  const [isBiometricSupported] = useState(() => isSmartphone() && isWebAuthnAvailable());
   const [encryptionKey, setEncryptionKey] = useState<CryptoKey | null>(null);
   const [autoLockSettings, setAutoLockSettings] = useState<AutoLockSettings>(loadAutoLockSettings);
   const autoLockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const webAuthnInProgress = useRef(false);
 
   const goToHome = () => {
     setShowSetup(false); setShowHome(true); setShowPasswordAuth(false); setShowPasswordManager(false);
@@ -70,7 +78,7 @@ export const useAppController = () => {
     setAuthPassword(''); setAuthError('');
   };
   useEffect(() => {
-    if (!showPasswordAuth || !isWebAuthnAvailable() || !localStorage.getItem(WEBAUTHN_CREDENTIAL_KEY)) {
+    if (!showPasswordAuth || !isSmartphone() || !isWebAuthnAvailable() || !localStorage.getItem(WEBAUTHN_CREDENTIAL_KEY)) {
       setIsBiometricAvailable(false);
       return undefined;
     }
@@ -87,10 +95,6 @@ export const useAppController = () => {
     });
     return () => { active = false; };
   }, [showPasswordAuth]);
-  useEffect(() => {
-    if (!showPasswordAuth || !autoAuthEnabled || !isBiometricAvailable || !encryptionKey) return;
-    void handleWebAuthnAuth();
-  }, [autoAuthEnabled, encryptionKey, isBiometricAvailable, showPasswordAuth]);
   const lockPasswordManager = useCallback(() => {
     setShowSetup(false); setShowHome(false); setShowPasswordAuth(true); setShowPasswordManager(false);
     setAuthPassword(''); setAuthError('');
@@ -147,8 +151,9 @@ export const useAppController = () => {
     }
     setAuthError('マスターパスワードが違います');
   };
-  const registerWebAuthnCredential = async () => {
-    if (!isWebAuthnAvailable() || localStorage.getItem(WEBAUTHN_CREDENTIAL_KEY)) return;
+  const registerWebAuthnCredential = async (replaceExisting = false) => {
+    if (!isSmartphone() || !isWebAuthnAvailable()) return false;
+    if (!replaceExisting && localStorage.getItem(WEBAUTHN_CREDENTIAL_KEY)) return true;
     try {
       const credential = await navigator.credentials.create({
         publicKey: {
@@ -163,17 +168,22 @@ export const useAppController = () => {
       });
       if (credential instanceof PublicKeyCredential) {
         localStorage.setItem(WEBAUTHN_CREDENTIAL_KEY, toBase64Url(credential.rawId));
+        return true;
       }
     } catch {
       // パスキー登録をキャンセルしても、マスターパスワード認証は利用できる
     }
+    return false;
   };
+  const setupBiometricAuthentication = async () => registerWebAuthnCredential(true);
   const handleWebAuthnAuth = async () => {
+    if (!isSmartphone() || !isBiometricAvailable || webAuthnInProgress.current) return;
     const credentialId = localStorage.getItem(WEBAUTHN_CREDENTIAL_KEY);
     if (!credentialId) {
       setAuthError('先にパスキーを登録してください');
       return;
     }
+    webAuthnInProgress.current = true;
     try {
       await navigator.credentials.get({
         publicKey: {
@@ -187,6 +197,8 @@ export const useAppController = () => {
       setShowPasswordAuth(false); setShowPasswordManager(true); setAuthError('');
     } catch {
       setAuthError('端末認証に失敗しました。マスターパスワードを入力してください');
+    } finally {
+      webAuthnInProgress.current = false;
     }
   };
   const handleLogout = () => {
@@ -204,10 +216,6 @@ export const useAppController = () => {
     const nextSettings = { enabled: settings.enabled, minutes: Math.min(60, Math.max(1, settings.minutes || 1)) };
     localStorage.setItem(AUTO_LOCK_SETTINGS_KEY, JSON.stringify(nextSettings));
     setAutoLockSettings(nextSettings);
-  };
-  const updateAutoAuthEnabled = (enabled: boolean) => {
-    localStorage.setItem(AUTO_AUTH_SETTINGS_KEY, String(enabled));
-    setAutoAuthEnabled(enabled);
   };
   const changeMasterPassword = async (currentPassword: string, newPassword: string, confirmation: string) => {
     const normalizedCurrentPassword = normalizeMasterPassword(currentPassword);
@@ -228,9 +236,9 @@ export const useAppController = () => {
 
   return {
     showSetup, showHome, showPasswordAuth, showPasswordManager,
-    masterPassword, confirmPassword, authPassword, setupError, authError, isBiometricAvailable, autoAuthEnabled, encryptionKey,
+    masterPassword, confirmPassword, authPassword, setupError, authError, isBiometricAvailable, isBiometricSupported, encryptionKey,
     setMasterPassword, setConfirmPassword, setAuthPassword,
     goToHome, goToPasswordManager, handleSetup, handleAuth, handleWebAuthnAuth, handleLogout, handleClearAllData,
-    autoLockSettings, updateAutoLockSettings, updateAutoAuthEnabled, changeMasterPassword,
+    autoLockSettings, updateAutoLockSettings, setupBiometricAuthentication, changeMasterPassword,
   };
 };

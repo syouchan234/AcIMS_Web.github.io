@@ -2,7 +2,6 @@ import React from 'react';
 import {
   IonApp,
   IonButton,
-  IonCheckbox,
   IonContent,
   IonHeader,
   IonInput,
@@ -47,6 +46,7 @@ const App: React.FC = () => {
     setupError,
     authError,
     isBiometricAvailable,
+    isBiometricSupported,
     encryptionKey,
     setMasterPassword,
     setConfirmPassword,
@@ -59,8 +59,7 @@ const App: React.FC = () => {
     handleClearAllData,
     autoLockSettings,
     updateAutoLockSettings,
-    autoAuthEnabled,
-    updateAutoAuthEnabled,
+    setupBiometricAuthentication,
     changeMasterPassword,
   } = useAppController();
 
@@ -137,12 +136,6 @@ const App: React.FC = () => {
                 />
               </IonItem>
 
-              <IonItem className="auth-auto-auth-toggle">
-                <IonCheckbox checked={autoAuthEnabled} onIonChange={(e) => updateAutoAuthEnabled(e.detail.checked)}>
-                  端末認証を自動実行する
-                </IonCheckbox>
-              </IonItem>
-
               {authError && <p className="auth-error">{authError}</p>}
 
               <IonButton expand="block" onClick={handleAuth} className="auth-primary-action">
@@ -150,7 +143,7 @@ const App: React.FC = () => {
               </IonButton>
               {isBiometricAvailable && encryptionKey && (
                 <IonButton expand="block" fill="outline" onClick={() => void handleWebAuthnAuth()} className="auth-biometric-action">
-                  端末認証で開く
+                  生体認証で開く
                 </IonButton>
               )}
               <IonButton expand="block" fill="clear" onClick={goToHome} className="auth-secondary-action">
@@ -180,6 +173,8 @@ const App: React.FC = () => {
           encryptionKey={encryptionKey}
           autoLockSettings={autoLockSettings}
           onAutoLockSettingsChange={updateAutoLockSettings}
+          isBiometricSupported={isBiometricSupported}
+          onBiometricSetup={setupBiometricAuthentication}
           onBack={goToHome}
           onMasterPasswordChange={changeMasterPassword}
         />

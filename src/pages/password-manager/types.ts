@@ -26,5 +26,7 @@ export interface PasswordManagerViewProps {
   onImport: (entries: Omit<PasswordEntry, 'id' | 'createdAt' | 'updatedAt'>[]) => Promise<void>;
   autoLockSettings: AutoLockSettings;
   onAutoLockSettingsChange: (settings: AutoLockSettings) => void;
+  isBiometricSupported: boolean;
+  onBiometricSetup: () => Promise<boolean>;
   onMasterPasswordChange: (currentPassword: string, newPassword: string, confirmation: string) => Promise<string | null>;
 }
