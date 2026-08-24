@@ -1,4 +1,4 @@
-System.register(["./index-legacy-CostO_33.js"],function(t,e){"use strict";var n,r,s;return{setters:[t=>{n=t.o,r=t.s,s=t.b}],execute:function(){
+System.register(["./index-legacy--TqMsd10.js"],function(t,e){"use strict";var n,r,s;return{setters:[t=>{n=t.o,r=t.s,s=t.b}],execute:function(){
 /*!
 			 * (C) Ionic http://ionicframework.com - MIT License
 			 */
