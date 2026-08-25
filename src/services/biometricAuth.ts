@@ -2,14 +2,17 @@ const WEBAUTHN_CREDENTIAL_KEY = 'acims_webauthn_credential';
 const RP_NAME = 'AcIMSWeb';
 const USER_NAME = 'acims-user';
 
+/** WebAuthn のクレデンシャル ID を保存用の Base64URL 文字列に変換する。 */
 const toBase64Url = (value: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(value)))
   .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
+/** 保存済みの Base64URL 文字列を WebAuthn に渡せるバイト列へ戻す。 */
 const fromBase64Url = (value: string) => {
   const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4);
   return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
 };
 
+/** リプレイ攻撃を防ぐため、WebAuthn 操作ごとにランダムなチャレンジを生成する。 */
 const createChallenge = () => crypto.getRandomValues(new Uint8Array(32));
 
 /** 生体認証の対象をスマートフォン・タブレットのブラウザーに限定する。 */
@@ -20,17 +23,21 @@ export const isMobileDevice = () => {
     || (/iPad|Macintosh/i.test(userAgent) && maxTouchPoints > 1);
 };
 
+/** 現在の端末・ブラウザーで生体認証に必要な WebAuthn API が使えるか判定する。 */
 export const isBiometricAuthenticationSupported = () => typeof window !== 'undefined'
   && isMobileDevice()
   && Boolean(window.PublicKeyCredential)
   && Boolean(navigator.credentials);
 
+/** 登録済みの端末認証情報があるか判定する。 */
 export const hasBiometricCredential = () => Boolean(localStorage.getItem(WEBAUTHN_CREDENTIAL_KEY));
 
+/** 保存済みの端末認証情報を削除する。 */
 export const clearBiometricCredential = () => {
   localStorage.removeItem(WEBAUTHN_CREDENTIAL_KEY);
 };
 
+/** 端末認証情報とプラットフォーム認証器が利用可能か非同期で確認する。 */
 export const isBiometricAuthenticationAvailable = async () => {
   if (!isBiometricAuthenticationSupported() || !hasBiometricCredential()) return false;
 

@@ -28,6 +28,7 @@ interface EncryptedPasswordRecord {
 export class PasswordDatabase {
   private db: IDBDatabase | null = null;
 
+  /** 旧形式の平文レコードを読み込み時に暗号化形式へ移行する。 */
   private async migrateLegacyRecords(records: PasswordEntry[], key: CryptoKey): Promise<void> {
     if (!records.length) return;
     const encryptedRecords = await Promise.all(records.map(async (entry) => ({
@@ -36,6 +37,7 @@ export class PasswordDatabase {
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,
     })));
+    // 1つのトランザクションで置き換え、途中失敗時に不完全な移行を残さない。
     await new Promise<void>((resolve, reject) => {
       const transaction = this.db!.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
@@ -46,6 +48,7 @@ export class PasswordDatabase {
     });
   }
 
+  /** IndexedDB を開き、初回起動時はパスワード保存用ストアを作成する。 */
   async init(): Promise<void> {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -65,6 +68,7 @@ export class PasswordDatabase {
     });
   }
 
+  /** 新しいエントリーを暗号化して IndexedDB に追加し、採番された ID を返す。 */
   async addPassword(entry: Omit<PasswordEntry, 'id' | 'createdAt' | 'updatedAt'>, key: CryptoKey): Promise<number> {
     if (!this.db) await this.init();
     const encrypted = await encryptPasswordEntry(entry, key);
@@ -85,6 +89,7 @@ export class PasswordDatabase {
     });
   }
 
+  /** 指定 ID のエントリーを再暗号化して更新し、作成日時は保持する。 */
   async updatePassword(id: number, entry: Omit<PasswordEntry, 'id' | 'createdAt' | 'updatedAt'>, key: CryptoKey): Promise<void> {
     if (!this.db) await this.init();
     const encrypted = await encryptPasswordEntry(entry, key);
@@ -115,6 +120,7 @@ export class PasswordDatabase {
     });
   }
 
+  /** 指定 ID のエントリーを IndexedDB から削除する。 */
   async deletePassword(id: number): Promise<void> {
     if (!this.db) await this.init();
 
@@ -128,6 +134,7 @@ export class PasswordDatabase {
     });
   }
 
+  /** 全エントリーを取得して復号し、旧形式があれば暗号化形式へ移行する。 */
   async getAllPasswords(key: CryptoKey): Promise<PasswordEntry[]> {
     if (!this.db) await this.init();
     const records = await new Promise<Array<EncryptedPasswordRecord | PasswordEntry>>((resolve, reject) => {
@@ -149,6 +156,7 @@ export class PasswordDatabase {
     }));
   }
 
+  /** 指定 ID のエントリーを取得して復号する。存在しない場合は null を返す。 */
   async getPasswordById(id: number, key: CryptoKey): Promise<PasswordEntry | null> {
     if (!this.db) await this.init();
 
@@ -174,11 +182,13 @@ export class PasswordDatabase {
     });
   }
 
+  /** 指定カテゴリに属するエントリーだけを返す。 */
   async getPasswordsByCategory(category: string, key: CryptoKey): Promise<PasswordEntry[]> {
     const allPasswords = await this.getAllPasswords(key);
     return allPasswords.filter((entry) => entry.category === category);
   }
 
+  /** すべてのパスワードエントリーを削除する。 */
   async clearAllPasswords(): Promise<void> {
     if (!this.db) await this.init();
 
@@ -192,6 +202,7 @@ export class PasswordDatabase {
     });
   }
 
+  /** インポートや鍵変更用に、全エントリーを削除して指定内容で入れ替える。 */
   async replaceAllPasswords(entries: Omit<PasswordEntry, 'id' | 'createdAt' | 'updatedAt'>[], key: CryptoKey): Promise<void> {
     await this.clearAllPasswords();
     for (const entry of entries) await this.addPassword(entry, key);

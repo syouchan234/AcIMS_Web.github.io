@@ -2,14 +2,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { passwordDb, type PasswordEntry } from '../../services/passwordDb';
 import type { PasswordFormData } from './types';
 
+/** 新規登録用の空のフォーム値を作成する。 */
 const emptyFormData = (): PasswordFormData => ({ category: '', appName: '', userId: '', email: '', password: '', url: '', memo: '' });
 
+/** パスワード一覧の読み書きと登録フォームの状態をまとめて管理する。 */
 export const usePasswordManager = (encryptionKey: CryptoKey | null) => {
   const [passwords, setPasswords] = useState<PasswordEntry[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState<PasswordFormData>(emptyFormData);
   const [loading, setLoading] = useState(true);
+  /** 現在の復号鍵で保存済みエントリーを読み込む。 */
   const loadPasswords = useCallback(async () => {
     if (!encryptionKey) return;
     try { setLoading(true); setPasswords(await passwordDb.getAllPasswords(encryptionKey)); }
@@ -17,12 +20,15 @@ export const usePasswordManager = (encryptionKey: CryptoKey | null) => {
     finally { setLoading(false); }
   }, [encryptionKey]);
   useEffect(() => { void loadPasswords(); }, [loadPasswords]);
+  /** 新規登録または編集用にフォームを初期化してダイアログを開く。 */
   const handleOpenModal = (password?: PasswordEntry) => {
     setEditingId(password?.id ?? null);
     setFormData(password ? { category: password.category, appName: password.appName, userId: password.userId, email: password.email, password: password.password, url: password.url, memo: password.memo } : emptyFormData());
     setIsModalOpen(true);
   };
+  /** 登録・編集ダイアログを閉じ、編集対象を解除する。 */
   const handleCloseModal = () => { setIsModalOpen(false); setEditingId(null); };
+  /** 必須項目を検証し、新規追加または既存エントリーの更新を行う。 */
   const handleSave = async () => {
     try {
       if (!formData.category || !formData.appName) { alert('カテゴリとアプリサイト名は必須です'); return; }
@@ -32,11 +38,13 @@ export const usePasswordManager = (encryptionKey: CryptoKey | null) => {
       await loadPasswords(); handleCloseModal();
     } catch (error) { console.error('保存エラー:', error); alert('保存に失敗しました'); }
   };
+  /** 確認後に指定エントリーを削除し、一覧を再読み込みする。 */
   const handleDelete = async (id: number | undefined) => {
     if (!id || !window.confirm('このパスワードを削除しますか？')) return;
     try { await passwordDb.deletePassword(id); await loadPasswords(); }
     catch (error) { console.error('削除エラー:', error); alert('削除に失敗しました'); }
   };
+  /** インポートしたエントリーで保存内容を置き換え、一覧を再読み込みする。 */
   const handleImport = async (entries: Omit<PasswordEntry, 'id' | 'createdAt' | 'updatedAt'>[]) => {
     if (!encryptionKey) throw new Error('暗号化キーがありません');
     await passwordDb.replaceAllPasswords(entries, encryptionKey);

@@ -48,13 +48,21 @@ const generatePassword = (settings: GeneratorSettings) => {
   ));
   const length = Math.min(
     MAX_GENERATED_PASSWORD_LENGTH,
-    Math.max(MIN_GENERATED_PASSWORD_LENGTH, settings.length, enabledSets.length),
+    Math.max(MIN_GENERATED_PASSWORD_LENGTH, settings.length),
   );
 
   if (enabledSets.length === 0) return '';
 
   const allCharacters = enabledSets.join('');
-  const password = enabledSets.map((characters) => characters[randomIndex(characters.length)]);
+  const requiredCharacterSets = [...enabledSets];
+  for (let index = requiredCharacterSets.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomIndex(index + 1);
+    [requiredCharacterSets[index], requiredCharacterSets[swapIndex]] = [requiredCharacterSets[swapIndex], requiredCharacterSets[index]];
+  }
+
+  // 指定文字数が文字種の数より少ない場合は、選ばれた文字種だけを含める。
+  const password = requiredCharacterSets.slice(0, length)
+    .map((characters) => characters[randomIndex(characters.length)]);
   while (password.length < length) password.push(allCharacters[randomIndex(allCharacters.length)]);
 
   for (let index = password.length - 1; index > 0; index -= 1) {
@@ -122,6 +130,7 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState('');
   const [generatorSettings, setGeneratorSettings] = useState<GeneratorSettings>(defaultGeneratorSettings);
+  const [isFormPasswordVisible, setIsFormPasswordVisible] = useState(false);
   const [isAppSettingsOpen, setIsAppSettingsOpen] = useState(false);
   const [currentMasterPassword, setCurrentMasterPassword] = useState('');
   const [newMasterPassword, setNewMasterPassword] = useState('');
@@ -292,7 +301,7 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
             </table></div><div className="password-cards">{filteredPasswords.map(renderPasswordCard)}</div></>}
       <IonFab className="add-password-fab" horizontal="end" slot="fixed" vertical="bottom"><IonFabButton aria-label="新規追加" onClick={() => onOpenModal()}><IonIcon icon={addOutline} /></IonFabButton></IonFab>
     </IonContent>
-    <IonModal isOpen={isModalOpen} onDidDismiss={onCloseModal}>
+    <IonModal isOpen={isModalOpen} onDidDismiss={() => { setIsFormPasswordVisible(false); onCloseModal(); }}>
       <IonHeader><IonToolbar><IonTitle>{editingId !== null ? 'パスワード編集' : 'パスワード新規追加'}</IonTitle><IonButtons slot="end"><IonButton onClick={onCloseModal}>閉じる</IonButton></IonButtons></IonToolbar></IonHeader>
       <IonContent><div className="form-container">
         <IonItem><IonLabel position="stacked">カテゴリ *</IonLabel><IonInput value={formData.category} onIonInput={(event) => updateFormData('category', event.detail.value || '')} placeholder="例: メール、SNS、銀行" /></IonItem>
@@ -300,7 +309,13 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
         <IonItem><IonLabel position="stacked">アプリサイト名 *</IonLabel><IonInput value={formData.appName} onIonInput={(event) => updateFormData('appName', event.detail.value || '')} placeholder="例: Gmail、Twitter" /></IonItem>
         <IonItem><IonLabel position="stacked">ID</IonLabel><IonInput value={formData.userId} onIonInput={(event) => updateFormData('userId', event.detail.value || '')} placeholder="ユーザーID" /></IonItem>
         <IonItem><IonLabel position="stacked">メールアドレス</IonLabel><IonInput value={formData.email} onIonInput={(event) => updateFormData('email', event.detail.value || '')} placeholder="メールアドレス" type="email" /></IonItem>
-        <IonItem><IonLabel position="stacked">パスワード</IonLabel><IonInput value={formData.password} onIonInput={(event) => updateFormData('password', event.detail.value || '')} placeholder="パスワード" type="password" /></IonItem>
+        <IonItem>
+          <IonLabel position="stacked">パスワード</IonLabel>
+          <IonInput value={formData.password} onIonInput={(event) => updateFormData('password', event.detail.value || '')} placeholder="パスワード" type={isFormPasswordVisible ? 'text' : 'password'} />
+          <IonButton aria-label={isFormPasswordVisible ? 'パスワードを非表示' : 'パスワードを表示'} fill="clear" onClick={() => setIsFormPasswordVisible((visible) => !visible)} slot="end" title={isFormPasswordVisible ? '非表示' : '表示'}>
+            <IonIcon icon={isFormPasswordVisible ? eyeOffOutline : eyeOutline} slot="icon-only" />
+          </IonButton>
+        </IonItem>
         {editingId === null && <IonButton className="generate-password-button" fill="outline" onClick={openGenerator}><IonIcon icon={addOutline} slot="start" />パスワードを生成</IonButton>}
         <IonItem><IonLabel position="stacked">URL</IonLabel><IonInput value={formData.url} onIonInput={(event) => updateFormData('url', event.detail.value || '')} placeholder="https://example.com" type="url" /></IonItem>
         <IonItem><IonLabel position="stacked">備考</IonLabel><IonTextarea autoGrow value={formData.memo} onIonInput={(event) => updateFormData('memo', event.detail.value || '')} placeholder="メモ" /></IonItem>
@@ -310,7 +325,7 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
     <IonModal isOpen={isGeneratorOpen} onDidDismiss={() => setIsGeneratorOpen(false)}>
       <IonHeader><IonToolbar><IonTitle>パスワード生成</IonTitle><IonButtons slot="end"><IonButton onClick={() => setIsGeneratorOpen(false)}>閉じる</IonButton></IonButtons></IonToolbar></IonHeader>
       <IonContent><div className="generator-container"><p className="generated-password">{generatedPassword}</p><IonButton expand="block" fill="outline" onClick={() => setGeneratedPassword(generatePassword(generatorSettings))}>再生成</IonButton><IonButton expand="block" fill="outline" onClick={() => handleCopy(generatedPassword, '生成したパスワード')}>コピー</IonButton><IonButton expand="block" onClick={() => { updateFormData('password', generatedPassword); setIsGeneratorOpen(false); }}>このパスワードを使用</IonButton>
-        <div className="generator-settings"><h2>生成設定</h2><IonItem><IonLabel>文字数（1〜256）</IonLabel><IonInput inputMode="numeric" max={MAX_GENERATED_PASSWORD_LENGTH} min={MIN_GENERATED_PASSWORD_LENGTH} onIonInput={(event) => setGeneratorSettings({ ...generatorSettings, length: Math.min(MAX_GENERATED_PASSWORD_LENGTH, Math.max(MIN_GENERATED_PASSWORD_LENGTH, Number(event.detail.value) || MIN_GENERATED_PASSWORD_LENGTH)) })} type="number" value={generatorSettings.length} /></IonItem><IonItem><IonLabel>英大文字</IonLabel><IonToggle checked={generatorSettings.uppercase} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, uppercase: event.detail.checked })} /></IonItem><IonItem><IonLabel>英小文字</IonLabel><IonToggle checked={generatorSettings.lowercase} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, lowercase: event.detail.checked })} /></IonItem><IonItem><IonLabel>数字</IonLabel><IonToggle checked={generatorSettings.numbers} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, numbers: event.detail.checked })} /></IonItem><IonItem><IonLabel>記号</IonLabel><IonToggle checked={generatorSettings.symbols} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, symbols: event.detail.checked })} /></IonItem><IonItem><IonLabel>紛らわしい文字を除外</IonLabel><IonToggle checked={generatorSettings.excludeAmbiguous} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, excludeAmbiguous: event.detail.checked })} /></IonItem></div>
+        <div className="generator-settings"><h2>生成設定</h2><IonItem className="generator-length-item"><IonLabel>文字数（1〜256）</IonLabel><IonInput aria-label="生成するパスワードの文字数" inputMode="numeric" max={MAX_GENERATED_PASSWORD_LENGTH} min={MIN_GENERATED_PASSWORD_LENGTH} onIonInput={(event) => setGeneratorSettings({ ...generatorSettings, length: Math.min(MAX_GENERATED_PASSWORD_LENGTH, Math.max(MIN_GENERATED_PASSWORD_LENGTH, Number(event.detail.value) || MIN_GENERATED_PASSWORD_LENGTH)) })} type="number" value={generatorSettings.length} /></IonItem><IonItem><IonLabel>英大文字</IonLabel><IonToggle checked={generatorSettings.uppercase} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, uppercase: event.detail.checked })} /></IonItem><IonItem><IonLabel>英小文字</IonLabel><IonToggle checked={generatorSettings.lowercase} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, lowercase: event.detail.checked })} /></IonItem><IonItem><IonLabel>数字</IonLabel><IonToggle checked={generatorSettings.numbers} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, numbers: event.detail.checked })} /></IonItem><IonItem><IonLabel>記号</IonLabel><IonToggle checked={generatorSettings.symbols} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, symbols: event.detail.checked })} /></IonItem><IonItem><IonLabel>紛らわしい文字を除外</IonLabel><IonToggle checked={generatorSettings.excludeAmbiguous} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, excludeAmbiguous: event.detail.checked })} /></IonItem></div>
       </div></IonContent>
     </IonModal>
     <IonModal isOpen={isAppSettingsOpen} onDidDismiss={() => setIsAppSettingsOpen(false)}>

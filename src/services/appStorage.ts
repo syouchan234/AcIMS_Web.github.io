@@ -22,16 +22,20 @@ export const loadMasterPasswordRecord = (): StoredMasterPassword | string | null
   }
 };
 
+/** マスターパスワードが設定済みか判定する。 */
 export const hasMasterPasswordRecord = () => Boolean(loadMasterPasswordRecord());
 
+/** マスターパスワードの検証用レコードを保存する。パスワード本文は保存しない。 */
 export const saveMasterPasswordRecord = (record: StoredMasterPassword) => {
   localStorage.setItem(MASTER_PASSWORD_KEY, JSON.stringify(record));
 };
 
+/** マスターパスワードの検証用レコードを削除する。 */
 export const clearMasterPasswordRecord = () => {
   localStorage.removeItem(MASTER_PASSWORD_KEY);
 };
 
+/** 自動ロック設定を読み込み、破損時は安全な既定値を返す。 */
 export const loadAutoLockSettings = (): AutoLockSettings => {
   try {
     const stored = localStorage.getItem(AUTO_LOCK_SETTINGS_KEY);
@@ -41,6 +45,7 @@ export const loadAutoLockSettings = (): AutoLockSettings => {
   }
 };
 
+/** 自動ロック設定を保存する。 */
 export const saveAutoLockSettings = (settings: AutoLockSettings) => {
   localStorage.setItem(AUTO_LOCK_SETTINGS_KEY, JSON.stringify(settings));
 };
