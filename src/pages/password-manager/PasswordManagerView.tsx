@@ -22,6 +22,8 @@ interface GeneratorSettings {
 const defaultGeneratorSettings: GeneratorSettings = {
   length: 16, uppercase: true, lowercase: true, numbers: true, symbols: true, excludeAmbiguous: false,
 };
+const MIN_GENERATED_PASSWORD_LENGTH = 1;
+const MAX_GENERATED_PASSWORD_LENGTH = 256;
 const characterSets = {
   uppercase: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
   lowercase: 'abcdefghijklmnopqrstuvwxyz',
@@ -44,7 +46,10 @@ const generatePassword = (settings: GeneratorSettings) => {
   ].filter((characters): characters is string => Boolean(characters)).map((characters) => (
     settings.excludeAmbiguous ? characters.replace(/[O0Il1]/g, '') : characters
   ));
-  const length = Math.max(settings.length, enabledSets.length);
+  const length = Math.min(
+    MAX_GENERATED_PASSWORD_LENGTH,
+    Math.max(MIN_GENERATED_PASSWORD_LENGTH, settings.length, enabledSets.length),
+  );
 
   if (enabledSets.length === 0) return '';
 
@@ -140,6 +145,7 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
         await navigator.clipboard.writeText(value);
         return;
       } catch {
+        // Clipboard API が利用できない場合は、下のフォールバックへ進む。
       }
     }
 
@@ -304,7 +310,7 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
     <IonModal isOpen={isGeneratorOpen} onDidDismiss={() => setIsGeneratorOpen(false)}>
       <IonHeader><IonToolbar><IonTitle>パスワード生成</IonTitle><IonButtons slot="end"><IonButton onClick={() => setIsGeneratorOpen(false)}>閉じる</IonButton></IonButtons></IonToolbar></IonHeader>
       <IonContent><div className="generator-container"><p className="generated-password">{generatedPassword}</p><IonButton expand="block" fill="outline" onClick={() => setGeneratedPassword(generatePassword(generatorSettings))}>再生成</IonButton><IonButton expand="block" fill="outline" onClick={() => handleCopy(generatedPassword, '生成したパスワード')}>コピー</IonButton><IonButton expand="block" onClick={() => { updateFormData('password', generatedPassword); setIsGeneratorOpen(false); }}>このパスワードを使用</IonButton>
-        <div className="generator-settings"><h2>生成設定</h2><IonItem><IonLabel>文字数（4〜64）</IonLabel><IonInput inputMode="numeric" max="64" min="4" onIonInput={(event) => setGeneratorSettings({ ...generatorSettings, length: Math.min(64, Math.max(4, Number(event.detail.value) || 4)) })} type="number" value={generatorSettings.length} /></IonItem><IonItem><IonLabel>英大文字</IonLabel><IonToggle checked={generatorSettings.uppercase} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, uppercase: event.detail.checked })} /></IonItem><IonItem><IonLabel>英小文字</IonLabel><IonToggle checked={generatorSettings.lowercase} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, lowercase: event.detail.checked })} /></IonItem><IonItem><IonLabel>数字</IonLabel><IonToggle checked={generatorSettings.numbers} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, numbers: event.detail.checked })} /></IonItem><IonItem><IonLabel>記号</IonLabel><IonToggle checked={generatorSettings.symbols} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, symbols: event.detail.checked })} /></IonItem><IonItem><IonLabel>紛らわしい文字を除外</IonLabel><IonToggle checked={generatorSettings.excludeAmbiguous} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, excludeAmbiguous: event.detail.checked })} /></IonItem></div>
+        <div className="generator-settings"><h2>生成設定</h2><IonItem><IonLabel>文字数（1〜256）</IonLabel><IonInput inputMode="numeric" max={MAX_GENERATED_PASSWORD_LENGTH} min={MIN_GENERATED_PASSWORD_LENGTH} onIonInput={(event) => setGeneratorSettings({ ...generatorSettings, length: Math.min(MAX_GENERATED_PASSWORD_LENGTH, Math.max(MIN_GENERATED_PASSWORD_LENGTH, Number(event.detail.value) || MIN_GENERATED_PASSWORD_LENGTH)) })} type="number" value={generatorSettings.length} /></IonItem><IonItem><IonLabel>英大文字</IonLabel><IonToggle checked={generatorSettings.uppercase} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, uppercase: event.detail.checked })} /></IonItem><IonItem><IonLabel>英小文字</IonLabel><IonToggle checked={generatorSettings.lowercase} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, lowercase: event.detail.checked })} /></IonItem><IonItem><IonLabel>数字</IonLabel><IonToggle checked={generatorSettings.numbers} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, numbers: event.detail.checked })} /></IonItem><IonItem><IonLabel>記号</IonLabel><IonToggle checked={generatorSettings.symbols} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, symbols: event.detail.checked })} /></IonItem><IonItem><IonLabel>紛らわしい文字を除外</IonLabel><IonToggle checked={generatorSettings.excludeAmbiguous} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, excludeAmbiguous: event.detail.checked })} /></IonItem></div>
       </div></IonContent>
     </IonModal>
     <IonModal isOpen={isAppSettingsOpen} onDidDismiss={() => setIsAppSettingsOpen(false)}>

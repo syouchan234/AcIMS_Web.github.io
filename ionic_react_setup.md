@@ -1,4 +1,6 @@
-# Ionic + React プロジェクト立ち上げ手順ガイド
+# Ionic + React プロジェクト立ち上げ手順ガイド（旧資料）
+
+> この資料は Ionic プロジェクト作成時の一般的な手順です。AcIMSWeb の開発手順は [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) を参照してください。
 
 Ionic Framework と React を組み合わせたモバイル・Webアプリケーション開発環境の構築から、ローカルサーバーでの起動手順をまとめたガイドです。
 
