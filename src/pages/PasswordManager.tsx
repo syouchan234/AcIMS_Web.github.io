@@ -7,10 +7,12 @@ interface PasswordManagerProps {
   onBack?: () => void;
   autoLockSettings: AutoLockSettings;
   onAutoLockSettingsChange: (settings: AutoLockSettings) => void;
+  isBiometricSupported: boolean;
+  onBiometricSetup: () => Promise<boolean>;
   onMasterPasswordChange: (currentPassword: string, newPassword: string, confirmation: string) => Promise<string | null>;
 }
 
-const PasswordManager: React.FC<PasswordManagerProps> = ({ encryptionKey, onBack, autoLockSettings, onAutoLockSettingsChange, onMasterPasswordChange }) => {
+const PasswordManager: React.FC<PasswordManagerProps> = ({ encryptionKey, onBack, autoLockSettings, onAutoLockSettingsChange, isBiometricSupported, onBiometricSetup, onMasterPasswordChange }) => {
   const {
     setFormData,
     handleOpenModal,
@@ -32,6 +34,8 @@ const PasswordManager: React.FC<PasswordManagerProps> = ({ encryptionKey, onBack
       onImport={handleImport}
       autoLockSettings={autoLockSettings}
       onAutoLockSettingsChange={onAutoLockSettingsChange}
+      isBiometricSupported={isBiometricSupported}
+      onBiometricSetup={onBiometricSetup}
       onMasterPasswordChange={onMasterPasswordChange}
       {...passwordManager}
     />

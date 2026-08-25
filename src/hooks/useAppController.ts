@@ -1,54 +1,40 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  authenticateWithBiometrics,
+  clearBiometricCredential,
+  isBiometricAuthenticationAvailable,
+  isBiometricAuthenticationSupported,
+  registerBiometricCredential,
+} from '../services/biometricAuth';
+import {
+  clearMasterPasswordRecord,
+  hasMasterPasswordRecord,
+  loadAutoLockSettings,
+  loadMasterPasswordRecord,
+  saveAutoLockSettings,
+  saveMasterPasswordRecord,
+  type AutoLockSettings,
+} from '../services/appStorage';
 import { passwordDb } from '../services/passwordDb';
-import { createMasterPasswordRecord, type StoredMasterPassword, verifyMasterPassword } from '../services/security';
+import { createMasterPasswordRecord, verifyMasterPassword } from '../services/security';
 
-const MASTER_PASSWORD_KEY = 'acims_master_password';
-const AUTO_LOCK_SETTINGS_KEY = 'acims_auto_lock_settings';
-const AUTO_AUTH_SETTINGS_KEY = 'acims_auto_auth_enabled';
-const WEBAUTHN_CREDENTIAL_KEY = 'acims_webauthn_credential';
+const MIN_MASTER_PASSWORD_LENGTH = 4;
+const MAX_AUTO_LOCK_MINUTES = 60;
 
 const normalizeMasterPassword = (password: string) => password.trim();
 
-const toBase64Url = (value: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(value)))
-  .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const toAutoLockSettings = (settings: AutoLockSettings): AutoLockSettings => ({
+  enabled: settings.enabled,
+  minutes: Math.min(MAX_AUTO_LOCK_MINUTES, Math.max(1, settings.minutes || 1)),
+});
 
-const fromBase64Url = (value: string) => {
-  const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4);
-  return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
-};
+export type { AutoLockSettings } from '../services/appStorage';
 
-const createWebAuthnChallenge = () => crypto.getRandomValues(new Uint8Array(32));
-
-const isWebAuthnAvailable = () => typeof window !== 'undefined'
-  && !!window.PublicKeyCredential
-  && !!navigator.credentials;
-
-export interface AutoLockSettings {
-  enabled: boolean;
-  minutes: number;
-}
-
-const loadAutoLockSettings = (): AutoLockSettings => {
-  try {
-    const saved = localStorage.getItem(AUTO_LOCK_SETTINGS_KEY);
-    return saved ? { enabled: false, minutes: 5, ...JSON.parse(saved) } : { enabled: false, minutes: 5 };
-  } catch {
-    return { enabled: false, minutes: 5 };
-  }
-};
-
-const loadAutoAuthEnabled = () => localStorage.getItem(AUTO_AUTH_SETTINGS_KEY) === 'true';
-
+/** アプリの画面遷移、認証、自動ロックの状態を管理する。 */
 export const useAppController = () => {
-  const getStoredMasterPassword = (): StoredMasterPassword | string | null => {
-    const stored = localStorage.getItem(MASTER_PASSWORD_KEY);
-    if (!stored) return null;
-    try { return JSON.parse(stored) as StoredMasterPassword; } catch { return stored; }
-  };
-  const hasMasterPassword = () => Boolean(getStoredMasterPassword());
   const [showSetup, setShowSetup] = useState(false);
-  const [showHome, setShowHome] = useState(() => !hasMasterPassword());
-  const [showPasswordAuth, setShowPasswordAuth] = useState(hasMasterPassword);
+  const [showHome, setShowHome] = useState(() => !hasMasterPasswordRecord());
+  const [showPasswordAuth, setShowPasswordAuth] = useState(hasMasterPasswordRecord);
   const [showPasswordManager, setShowPasswordManager] = useState(false);
   const [masterPassword, setMasterPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -56,184 +42,221 @@ export const useAppController = () => {
   const [setupError, setSetupError] = useState('');
   const [authError, setAuthError] = useState('');
   const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
-  const [autoAuthEnabled, setAutoAuthEnabled] = useState(loadAutoAuthEnabled);
   const [encryptionKey, setEncryptionKey] = useState<CryptoKey | null>(null);
   const [autoLockSettings, setAutoLockSettings] = useState<AutoLockSettings>(loadAutoLockSettings);
   const autoLockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const biometricAuthenticationInProgress = useRef(false);
+
+  const isBiometricSupported = isBiometricAuthenticationSupported();
+
+  const showOnly = (screen: 'home' | 'setup' | 'auth' | 'manager') => {
+    setShowHome(screen === 'home');
+    setShowSetup(screen === 'setup');
+    setShowPasswordAuth(screen === 'auth');
+    setShowPasswordManager(screen === 'manager');
+  };
+
+  const clearInputAndErrors = () => {
+    setMasterPassword('');
+    setConfirmPassword('');
+    setAuthPassword('');
+    setSetupError('');
+    setAuthError('');
+  };
 
   const goToHome = () => {
-    setShowSetup(false); setShowHome(true); setShowPasswordAuth(false); setShowPasswordManager(false);
-    setMasterPassword(''); setConfirmPassword(''); setAuthPassword(''); setSetupError(''); setAuthError('');
+    showOnly('home');
+    clearInputAndErrors();
   };
+
   const goToPasswordAuth = () => {
-    setShowSetup(false); setShowHome(false); setShowPasswordAuth(true); setShowPasswordManager(false);
-    setAuthPassword(''); setAuthError('');
+    showOnly('auth');
+    setAuthPassword('');
+    setAuthError('');
   };
-  useEffect(() => {
-    if (!showPasswordAuth || !isWebAuthnAvailable() || !localStorage.getItem(WEBAUTHN_CREDENTIAL_KEY)) {
-      setIsBiometricAvailable(false);
-      return undefined;
-    }
-    let active = true;
-    const platformAuthenticator = window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable;
-    if (!platformAuthenticator) {
-      setIsBiometricAvailable(true);
-      return undefined;
-    }
-    void platformAuthenticator.call(window.PublicKeyCredential).then((available) => {
-      if (active) setIsBiometricAvailable(available);
-    }).catch(() => {
-      if (active) setIsBiometricAvailable(false);
-    });
-    return () => { active = false; };
-  }, [showPasswordAuth]);
-  useEffect(() => {
-    if (!showPasswordAuth || !autoAuthEnabled || !isBiometricAvailable || !encryptionKey) return;
-    void handleWebAuthnAuth();
-  }, [autoAuthEnabled, encryptionKey, isBiometricAvailable, showPasswordAuth]);
+
   const lockPasswordManager = useCallback(() => {
-    setShowSetup(false); setShowHome(false); setShowPasswordAuth(true); setShowPasswordManager(false);
-    setAuthPassword(''); setAuthError('');
+    showOnly('auth');
+    setAuthPassword('');
+    setAuthError('');
   }, []);
+
+  useEffect(() => {
+    if (!showPasswordAuth) {
+      setIsBiometricAvailable(false);
+      return;
+    }
+
+    let isMounted = true;
+    void isBiometricAuthenticationAvailable().then((available) => {
+      if (isMounted) setIsBiometricAvailable(available);
+    });
+
+    return () => { isMounted = false; };
+  }, [showPasswordAuth]);
+
   const resetAutoLockTimer = useCallback(() => {
     if (autoLockTimer.current) clearTimeout(autoLockTimer.current);
     if (!showPasswordManager || !autoLockSettings.enabled) return;
+
     autoLockTimer.current = setTimeout(lockPasswordManager, autoLockSettings.minutes * 60 * 1000);
   }, [autoLockSettings, lockPasswordManager, showPasswordManager]);
+
   useEffect(() => {
     resetAutoLockTimer();
     if (!showPasswordManager || !autoLockSettings.enabled) return undefined;
-    const events = ['pointerdown', 'keydown', 'touchstart'];
-    events.forEach((eventName) => window.addEventListener(eventName, resetAutoLockTimer));
+
+    const activityEvents = ['pointerdown', 'keydown', 'touchstart'];
+    activityEvents.forEach((eventName) => window.addEventListener(eventName, resetAutoLockTimer));
+
     return () => {
       if (autoLockTimer.current) clearTimeout(autoLockTimer.current);
-      events.forEach((eventName) => window.removeEventListener(eventName, resetAutoLockTimer));
+      activityEvents.forEach((eventName) => window.removeEventListener(eventName, resetAutoLockTimer));
     };
   }, [autoLockSettings.enabled, resetAutoLockTimer, showPasswordManager]);
+
   const goToPasswordManager = () => {
-    if (!hasMasterPassword()) {
-      setShowSetup(true); setShowHome(false); setShowPasswordAuth(false); setShowPasswordManager(false);
-      return;
-    }
-    goToPasswordAuth();
+    if (hasMasterPasswordRecord()) goToPasswordAuth();
+    else showOnly('setup');
   };
+
   const handleSetup = async () => {
-    const trimmedPassword = normalizeMasterPassword(masterPassword);
-    if (trimmedPassword.length < 4) { setSetupError('マスターパスワードは4文字以上で設定してください'); return; }
-    if (trimmedPassword !== normalizeMasterPassword(confirmPassword)) { setSetupError('確認用パスワードが一致しません'); return; }
-    const { record, key } = await createMasterPasswordRecord(trimmedPassword);
-    localStorage.setItem(MASTER_PASSWORD_KEY, JSON.stringify(record));
-    setEncryptionKey(key);
-    void registerWebAuthnCredential();
-    setShowSetup(false); setShowHome(false); setShowPasswordManager(true); setSetupError('');
-  };
-  const handleAuth = async () => {
-    const stored = getStoredMasterPassword();
-    const normalizedPassword = normalizeMasterPassword(authPassword);
-    let key: CryptoKey | null = null;
-    if (typeof stored === 'string') {
-      if (normalizedPassword === stored) {
-        const created = await createMasterPasswordRecord(stored);
-        localStorage.setItem(MASTER_PASSWORD_KEY, JSON.stringify(created.record));
-        key = created.key;
-      }
-    } else if (stored) {
-      try { key = await verifyMasterPassword(normalizedPassword, stored); } catch { key = null; }
-    }
-    if (key) {
-      setEncryptionKey(key);
-      await registerWebAuthnCredential();
-      setShowPasswordAuth(false); setShowPasswordManager(true); setAuthError(''); return;
-    }
-    setAuthError('マスターパスワードが違います');
-  };
-  const registerWebAuthnCredential = async () => {
-    if (!isWebAuthnAvailable() || localStorage.getItem(WEBAUTHN_CREDENTIAL_KEY)) return;
-    try {
-      const credential = await navigator.credentials.create({
-        publicKey: {
-          challenge: createWebAuthnChallenge(),
-          rp: { name: 'AcIMSWeb' },
-          user: { id: createWebAuthnChallenge(), name: 'acims-user', displayName: 'AcIMSWeb ユーザー' },
-          pubKeyCredParams: [{ alg: -7, type: 'public-key' }, { alg: -257, type: 'public-key' }],
-          authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
-          timeout: 60000,
-          attestation: 'none',
-        },
-      });
-      if (credential instanceof PublicKeyCredential) {
-        localStorage.setItem(WEBAUTHN_CREDENTIAL_KEY, toBase64Url(credential.rawId));
-      }
-    } catch {
-      // パスキー登録をキャンセルしても、マスターパスワード認証は利用できる
-    }
-  };
-  const handleWebAuthnAuth = async () => {
-    const credentialId = localStorage.getItem(WEBAUTHN_CREDENTIAL_KEY);
-    if (!credentialId) {
-      setAuthError('先にパスキーを登録してください');
+    const password = normalizeMasterPassword(masterPassword);
+    if (password.length < MIN_MASTER_PASSWORD_LENGTH) {
+      setSetupError(`マスターパスワードは${MIN_MASTER_PASSWORD_LENGTH}文字以上で設定してください`);
       return;
     }
-    try {
-      await navigator.credentials.get({
-        publicKey: {
-          challenge: createWebAuthnChallenge(),
-          allowCredentials: [{ id: fromBase64Url(credentialId), type: 'public-key' }],
-          userVerification: 'required',
-          timeout: 60000,
-        },
-      });
-      if (!encryptionKey) {
-        setAuthError('この端末ではパスワード入力後に端末認証を利用してください');
-        return;
+    if (password !== normalizeMasterPassword(confirmPassword)) {
+      setSetupError('確認用パスワードが一致しません');
+      return;
+    }
+
+    const { record, key } = await createMasterPasswordRecord(password);
+    saveMasterPasswordRecord(record);
+    setEncryptionKey(key);
+    void registerBiometricCredential();
+    showOnly('manager');
+    setSetupError('');
+  };
+
+  const handleAuth = async () => {
+    const storedRecord = loadMasterPasswordRecord();
+    const password = normalizeMasterPassword(authPassword);
+    let key: CryptoKey | null = null;
+
+    if (typeof storedRecord === 'string') {
+      if (password === storedRecord) {
+        const migratedRecord = await createMasterPasswordRecord(storedRecord);
+        saveMasterPasswordRecord(migratedRecord.record);
+        key = migratedRecord.key;
       }
-      setShowPasswordAuth(false); setShowPasswordManager(true); setAuthError('');
-    } catch {
+    } else if (storedRecord) {
+      key = await verifyMasterPassword(password, storedRecord);
+    }
+
+    if (!key) {
+      setAuthError('マスターパスワードが違います');
+      return;
+    }
+
+    setEncryptionKey(key);
+    await registerBiometricCredential();
+    showOnly('manager');
+    setAuthError('');
+  };
+
+  const handleWebAuthnAuth = async () => {
+    if (!isBiometricAvailable || biometricAuthenticationInProgress.current) return;
+
+    biometricAuthenticationInProgress.current = true;
+    const authenticated = await authenticateWithBiometrics();
+    biometricAuthenticationInProgress.current = false;
+
+    if (!authenticated) {
       setAuthError('端末認証に失敗しました。マスターパスワードを入力してください');
+      return;
+    }
+
+    // 復号鍵は現在のアプリ起動中だけメモリに保持する。
+    if (encryptionKey) {
+      showOnly('manager');
+      setAuthError('');
     }
   };
-  const handleLogout = () => {
-    localStorage.removeItem(MASTER_PASSWORD_KEY);
-    localStorage.removeItem(WEBAUTHN_CREDENTIAL_KEY);
-    setShowSetup(true); setShowHome(false); setShowPasswordAuth(false); setShowPasswordManager(false);
+
+  const clearAuthenticationData = () => {
+    clearMasterPasswordRecord();
+    clearBiometricCredential();
+    setEncryptionKey(null);
   };
+
+  const handleLogout = () => {
+    clearAuthenticationData();
+    showOnly('setup');
+  };
+
   const handleClearAllData = async () => {
     await passwordDb.clearAllPasswords();
-    localStorage.removeItem(MASTER_PASSWORD_KEY);
-    localStorage.removeItem(WEBAUTHN_CREDENTIAL_KEY);
+    clearAuthenticationData();
     goToHome();
   };
+
   const updateAutoLockSettings = (settings: AutoLockSettings) => {
-    const nextSettings = { enabled: settings.enabled, minutes: Math.min(60, Math.max(1, settings.minutes || 1)) };
-    localStorage.setItem(AUTO_LOCK_SETTINGS_KEY, JSON.stringify(nextSettings));
+    const nextSettings = toAutoLockSettings(settings);
+    saveAutoLockSettings(nextSettings);
     setAutoLockSettings(nextSettings);
   };
-  const updateAutoAuthEnabled = (enabled: boolean) => {
-    localStorage.setItem(AUTO_AUTH_SETTINGS_KEY, String(enabled));
-    setAutoAuthEnabled(enabled);
-  };
+
+  const setupBiometricAuthentication = () => registerBiometricCredential(true);
+
   const changeMasterPassword = async (currentPassword: string, newPassword: string, confirmation: string) => {
-    const normalizedCurrentPassword = normalizeMasterPassword(currentPassword);
-    const normalizedNewPassword = normalizeMasterPassword(newPassword);
-    const stored = getStoredMasterPassword();
-    if (!stored || typeof stored === 'string') return 'マスターパスワードのデータが古いため、再ログインしてください';
-    const currentKey = await verifyMasterPassword(normalizedCurrentPassword, stored);
+    const storedRecord = loadMasterPasswordRecord();
+    if (!storedRecord || typeof storedRecord === 'string') return 'マスターパスワードのデータが古いため、再ログインしてください';
+
+    const currentKey = await verifyMasterPassword(normalizeMasterPassword(currentPassword), storedRecord);
     if (!currentKey) return '現在のマスターパスワードが違います';
-    if (normalizedNewPassword.length < 4) return '新しいマスターパスワードは4文字以上で設定してください';
+
+    const normalizedNewPassword = normalizeMasterPassword(newPassword);
+    if (normalizedNewPassword.length < MIN_MASTER_PASSWORD_LENGTH) return `新しいマスターパスワードは${MIN_MASTER_PASSWORD_LENGTH}文字以上で設定してください`;
     if (normalizedNewPassword !== normalizeMasterPassword(confirmation)) return '確認用パスワードが一致しません';
+
     const { record, key } = await createMasterPasswordRecord(normalizedNewPassword);
     const entries = await passwordDb.getAllPasswords(currentKey);
-    await passwordDb.replaceAllPasswords(entries.map(({ category, appName, userId, email, password, url, memo }) => ({ category, appName, userId, email, password, url, memo })), key);
-    localStorage.setItem(MASTER_PASSWORD_KEY, JSON.stringify(record));
+    await passwordDb.replaceAllPasswords(
+      entries.map(({ category, appName, userId, email, password, url, memo }) => ({ category, appName, userId, email, password, url, memo })),
+      key,
+    );
+    saveMasterPasswordRecord(record);
     setEncryptionKey(key);
     return null;
   };
 
   return {
-    showSetup, showHome, showPasswordAuth, showPasswordManager,
-    masterPassword, confirmPassword, authPassword, setupError, authError, isBiometricAvailable, autoAuthEnabled, encryptionKey,
-    setMasterPassword, setConfirmPassword, setAuthPassword,
-    goToHome, goToPasswordManager, handleSetup, handleAuth, handleWebAuthnAuth, handleLogout, handleClearAllData,
-    autoLockSettings, updateAutoLockSettings, updateAutoAuthEnabled, changeMasterPassword,
+    showSetup,
+    showHome,
+    showPasswordAuth,
+    showPasswordManager,
+    masterPassword,
+    confirmPassword,
+    authPassword,
+    setupError,
+    authError,
+    isBiometricAvailable,
+    isBiometricSupported,
+    encryptionKey,
+    autoLockSettings,
+    setMasterPassword,
+    setConfirmPassword,
+    setAuthPassword,
+    goToHome,
+    goToPasswordManager,
+    handleSetup,
+    handleAuth,
+    handleWebAuthnAuth,
+    handleLogout,
+    handleClearAllData,
+    updateAutoLockSettings,
+    setupBiometricAuthentication,
+    changeMasterPassword,
   };
 };

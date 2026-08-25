@@ -61,7 +61,7 @@
 }
 
 .install-guide h2,
-.install-guide p {
+.install-guide > p {
   margin: 0;
 }
 
@@ -75,11 +75,44 @@
   font-size: 14px;
 }
 
-.install-guide ul {
+.install-platform-selector {
+  margin-top: 16px;
+}
+
+.install-steps {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--ion-color-light);
+}
+
+.install-steps p {
+  margin: 0;
+  color: var(--ion-color-medium-shade);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.install-steps h3 {
+  margin: 18px 0 0;
+  font-size: 15px;
+}
+
+.install-steps h3 + ol {
+  margin-top: 10px;
+}
+
+.install-steps .install-note {
+  margin-top: 14px;
+  font-size: 13px;
+}
+
+.install-steps ol {
   display: grid;
-  gap: 8px;
-  margin: 12px 0 0;
-  padding-left: 20px;
+  gap: 10px;
+  margin: 14px 0;
+  padding-left: 22px;
+  line-height: 1.6;
 }
 
 .install-guide a {
