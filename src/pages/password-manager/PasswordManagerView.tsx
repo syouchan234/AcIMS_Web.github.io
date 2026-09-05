@@ -1,135 +1,30 @@
-import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
-import {
-  IonButton, IonButtons, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput,
-  IonItem, IonLabel, IonModal, IonPage, IonSearchbar, IonSelect, IonSelectOption, IonTextarea,
-  IonTitle, IonToast, IonToggle, IonToolbar,
-} from '@ionic/react';
-import { addOutline, chevronUpOutline, copyOutline, eyeOffOutline, eyeOutline, searchOutline, settingsOutline } from 'ionicons/icons';
+import { useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { IonButton, IonButtons, IonContent, IonFabButton, IonHeader, IonIcon, IonPage, IonSearchbar, IonSelect, IonSelectOption, IonTitle, IonToast, IonToolbar } from '@ionic/react';
+import { addOutline, chevronUpOutline, searchOutline, settingsOutline } from 'ionicons/icons';
 import type { PasswordEntry } from '../../services/passwordDb';
 import type { PasswordManagerViewProps } from './types';
 import '../PasswordManager.css';
-import ProductLinks from '../../components/ProductLinks';
-
-interface GeneratorSettings {
-  length: number;
-  uppercase: boolean;
-  lowercase: boolean;
-  numbers: boolean;
-  symbols: boolean;
-  excludeAmbiguous: boolean;
-}
-
-const defaultGeneratorSettings: GeneratorSettings = {
-  length: 16, uppercase: true, lowercase: true, numbers: true, symbols: true, excludeAmbiguous: false,
-};
-const MIN_GENERATED_PASSWORD_LENGTH = 1;
-const MAX_GENERATED_PASSWORD_LENGTH = 256;
-const characterSets = {
-  uppercase: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-  lowercase: 'abcdefghijklmnopqrstuvwxyz',
-  numbers: '0123456789',
-  symbols: '!@#$%^&*()-_=+[]{};:,.?/',
-};
-
-const randomIndex = (length: number) => {
-  const randomValue = new Uint32Array(1);
-  crypto.getRandomValues(randomValue);
-  return randomValue[0] % length;
-};
-
-const generatePassword = (settings: GeneratorSettings) => {
-  const enabledSets = [
-    settings.uppercase && characterSets.uppercase,
-    settings.lowercase && characterSets.lowercase,
-    settings.numbers && characterSets.numbers,
-    settings.symbols && characterSets.symbols,
-  ].filter((characters): characters is string => Boolean(characters)).map((characters) => (
-    settings.excludeAmbiguous ? characters.replace(/[O0Il1]/g, '') : characters
-  ));
-  const length = Math.min(
-    MAX_GENERATED_PASSWORD_LENGTH,
-    Math.max(MIN_GENERATED_PASSWORD_LENGTH, settings.length),
-  );
-
-  if (enabledSets.length === 0) return '';
-
-  const allCharacters = enabledSets.join('');
-  const requiredCharacterSets = [...enabledSets];
-  for (let index = requiredCharacterSets.length - 1; index > 0; index -= 1) {
-    const swapIndex = randomIndex(index + 1);
-    [requiredCharacterSets[index], requiredCharacterSets[swapIndex]] = [requiredCharacterSets[swapIndex], requiredCharacterSets[index]];
-  }
-
-  // 指定文字数が文字種の数より少ない場合は、選ばれた文字種だけを含める。
-  const password = requiredCharacterSets.slice(0, length)
-    .map((characters) => characters[randomIndex(characters.length)]);
-  while (password.length < length) password.push(allCharacters[randomIndex(allCharacters.length)]);
-
-  for (let index = password.length - 1; index > 0; index -= 1) {
-    const swapIndex = randomIndex(index + 1);
-    [password[index], password[swapIndex]] = [password[swapIndex], password[index]];
-  }
-  return password.join('');
-};
-
-interface DesktopPasswordEntry {
-  InformationId: string;
-  Category: string;
-  AppSiteName: string;
-  UserId: string;
-  Email: string;
-  Password: string;
-  Url: string;
-  Memo: string;
-}
-
-const isImportEntry = (entry: unknown): entry is DesktopPasswordEntry => {
-  if (!entry || typeof entry !== 'object') return false;
-  return ['InformationId', 'Category', 'AppSiteName', 'UserId', 'Email', 'Password', 'Url', 'Memo']
-    .every((key) => typeof (entry as Record<string, unknown>)[key] === 'string');
-};
-
-const toPasswordEntry = (entry: DesktopPasswordEntry): Omit<PasswordEntry, 'id' | 'createdAt' | 'updatedAt'> => ({
-  category: entry.Category,
-  appName: entry.AppSiteName,
-  userId: entry.UserId,
-  email: entry.Email,
-  password: entry.Password,
-  url: entry.Url,
-  memo: entry.Memo,
-});
-
-const getPasswordMask = (password: string) => Array.from(password, () => '•').join('');
-const truncateText = (value: string, maxLength: number) => {
-  if (!value) return '';
-  return value.length > maxLength ? `${value.slice(0, Math.max(0, maxLength - 1))}...` : value;
-};
-
-interface CopyableCellProps {
-  value: string;
-  label: string;
-  children?: ReactNode;
-  onCopy: (value: string, label: string) => void;
-}
-
-const CopyableCell: React.FC<CopyableCellProps> = ({ value, label, children, onCopy }) => (
-  <td><div className="copyable-cell">
-    <span className="copyable-cell-value ellipsis-text">{children ?? truncateText(value, 32)}</span>
-    <IonButton aria-label={`${label}をコピー`} className="copy-button" disabled={!value} fill="clear" onClick={() => onCopy(value, label)} size="small" title={`${label}をコピー`}>
-      <IonIcon icon={copyOutline} slot="icon-only" />
-    </IonButton>
-  </div></td>
-);
+import PasswordCards from './PasswordCards';
+import DetailModal from './DetailModal';
+import ExportConfirmationModal from './ExportConfirmationModal';
+import MemoModal from './MemoModal';
+import PasswordFormModal from './PasswordFormModal';
+import PasswordGeneratorModal from './PasswordGeneratorModal';
+import PasswordTable from './PasswordTable';
+import SearchModal from './SearchModal';
+import SettingsModal from './SettingsModal';
+import { defaultGeneratorSettings, generatePassword, isImportEntry, toPasswordEntry, type DesktopPasswordEntry, type GeneratorSettings } from './passwordManagerUtils';
 
 const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
   onBack, passwords, loading, isModalOpen, editingId, formData, onOpenModal, onCloseModal,
   onSave, onDelete, onFormDataChange, onImport, autoLockSettings, onAutoLockSettingsChange, onMasterPasswordChange,
   isBiometricSupported, onBiometricSetup, onOpenTerms,
 }) => {
+  // 画面状態: 一覧、検索、表示切替、各モーダルの開閉状態をここで管理する。
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [visiblePasswordIds, setVisiblePasswordIds] = useState<Set<number>>(new Set());
-  const [memoDetail, setMemoDetail] = useState<PasswordEntry | null>(null);
+  const [memoDetail, setMemoDetail] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState('');
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState('');
@@ -147,6 +42,8 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
   const [autoLockDraft, setAutoLockDraft] = useState(autoLockSettings);
   const importInputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLIonContentElement | null>(null);
+
+  // 表示用の派生データ: 入力値からカテゴリと絞り込み結果を計算する。
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
   const categories = useMemo(() => [...new Set(passwords.map((password) => password.category))].sort(), [passwords]);
   const filteredPasswords = useMemo(() => passwords.filter((password) => {
@@ -157,17 +54,11 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
   }), [categoryFilter, normalizedQuery, passwords]);
   const allPasswordsVisible = passwords.length > 0 && passwords.every((password) => password.id !== undefined && visiblePasswordIds.has(password.id));
 
-  const updateFormData = (field: keyof typeof formData, value: string) => onFormDataChange({ ...formData, [field]: value });
+  // イベント処理: 子コンポーネントから受けた操作をデータ操作や状態変更へつなぐ。
   const copyText = async (value: string) => {
     if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-      try {
-        await navigator.clipboard.writeText(value);
-        return;
-      } catch {
-        // Clipboard API が利用できない場合は、下のフォールバックへ進む。
-      }
+      try { await navigator.clipboard.writeText(value); return; } catch { /* 下のフォールバックへ進む。 */ }
     }
-
     const textArea = document.createElement('textarea');
     textArea.value = value;
     textArea.setAttribute('readonly', '');
@@ -182,55 +73,21 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
     if (!copied) throw new Error('copy failed');
   };
   const handleCopy = async (value: string, label: string) => {
-    try {
-      await copyText(value);
-      setToastMessage(`${label}をコピーしました`);
-    } catch (error) {
-      console.error('クリップボードへのコピーに失敗しました:', error);
-      setToastMessage('コピーに失敗しました');
-    }
+    try { await copyText(value); setToastMessage(`${label}をコピーしました`); }
+    catch (error) { console.error('クリップボードへのコピーに失敗しました:', error); setToastMessage('コピーに失敗しました'); }
   };
   const togglePasswordVisibility = (id: number | undefined) => {
     if (id === undefined) return;
-    setVisiblePasswordIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+    setVisiblePasswordIds((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   };
-  const toggleAllPasswordsVisibility = () => {
-    setVisiblePasswordIds(allPasswordsVisible ? new Set() : new Set(passwords.flatMap((password) => password.id === undefined ? [] : [password.id])));
-  };
-  const handleQuickScrollTop = () => {
-    contentRef.current?.scrollToTop?.(500);
-  };
-  const openGenerator = () => {
-    setGeneratedPassword(generatePassword(generatorSettings));
-    setIsGeneratorOpen(true);
-  };
+  const toggleAllPasswordsVisibility = () => setVisiblePasswordIds(allPasswordsVisible ? new Set() : new Set(passwords.flatMap((password) => password.id === undefined ? [] : [password.id])));
+  const openGenerator = () => { setGeneratedPassword(generatePassword(generatorSettings)); setIsGeneratorOpen(true); };
   const exportPasswords = () => {
-    const exportData: DesktopPasswordEntry[] = passwords.map(({ id, category, appName, userId, email, password, url, memo }) => ({
-      InformationId: id === undefined ? '' : String(id),
-      Category: category,
-      AppSiteName: appName,
-      UserId: userId,
-      Email: email,
-      Password: password,
-      Url: url,
-      Memo: memo,
-    }));
+    const exportData: DesktopPasswordEntry[] = passwords.map(({ id, category, appName, userId, email, password, url, memo }) => ({ InformationId: id === undefined ? '' : String(id), Category: category, AppSiteName: appName, UserId: userId, Email: email, Password: password, Url: url, Memo: memo }));
     const url = URL.createObjectURL(new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' }));
     const link = document.createElement('a');
     link.href = url; link.download = `acims-passwords-${new Date().toISOString().slice(0, 10)}.json`; link.click();
     URL.revokeObjectURL(url);
-  };
-  const confirmExportPasswords = () => {
-    setIsAppSettingsOpen(false);
-    setIsExportConfirmOpen(true);
-  };
-  const handleExportPasswords = () => {
-    setIsExportConfirmOpen(false);
-    exportPasswords();
   };
   const importPasswords = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -242,178 +99,35 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
       if (!window.confirm('現在の登録パスワードを置き換えてインポートします。よろしいですか？')) return;
       await onImport(data.map(toPasswordEntry));
       setToastMessage('データをインポートしました');
-    } catch (error) {
-      console.error('インポートエラー:', error);
-      setToastMessage('インポートファイルを読み込めませんでした');
-    }
+    } catch (error) { console.error('インポートエラー:', error); setToastMessage('インポートファイルを読み込めませんでした'); }
   };
-  const saveAppSettings = () => {
-    onAutoLockSettingsChange(autoLockDraft);
-    setToastMessage('自動ロック設定を保存しました');
-  };
+  const saveAppSettings = () => { onAutoLockSettingsChange(autoLockDraft); setToastMessage('自動ロック設定を保存しました'); };
   const changeMasterPassword = async () => {
     const error = await onMasterPasswordChange(currentMasterPassword, newMasterPassword, masterPasswordConfirmation);
     if (error) { setToastMessage(error); return; }
-    setCurrentMasterPassword(''); setNewMasterPassword(''); setMasterPasswordConfirmation('');
-    setToastMessage('マスターパスワードを変更しました');
+    setCurrentMasterPassword(''); setNewMasterPassword(''); setMasterPasswordConfirmation(''); setToastMessage('マスターパスワードを変更しました');
   };
-  const setupBiometricAuthentication = async () => {
-    const registered = await onBiometricSetup();
-    setToastMessage(registered ? '生体認証を設定しました' : '生体認証の設定を完了できませんでした');
-  };
-  const closeDetail = () => {
-    setDetailPassword(null);
-    setIsDetailPasswordVisible(false);
-  };
-  const editDetail = () => {
-    if (!detailPassword) return;
-    const password = detailPassword;
-    closeDetail();
-    onOpenModal(password);
-  };
-  const deleteDetail = () => {
-    if (!detailPassword) return;
-    onDelete(detailPassword.id);
-    closeDetail();
-  };
-  const renderDetailField = (label: string, value: string) => <div className="detail-field"><h3>{label}</h3><div className="detail-value"><p>{value || '未登録'}</p><IonButton aria-label={`${label}をコピー`} disabled={!value} fill="clear" onClick={() => handleCopy(value, label)} size="small" title={`${label}をコピー`}><IonIcon icon={copyOutline} slot="icon-only" /></IonButton></div></div>;
+  const closeDetail = () => { setDetailPassword(null); setIsDetailPasswordVisible(false); };
+  const editDetail = () => { if (!detailPassword) return; const password = detailPassword; closeDetail(); onOpenModal(password); };
+  const deleteDetail = () => { if (!detailPassword) return; onDelete(detailPassword.id); closeDetail(); };
+  const handleQuickScrollTop = () => { contentRef.current?.scrollToTop?.(500); };
 
-  const renderPasswordRow = (password: PasswordEntry) => {
-    const isMasked = !(password.id !== undefined && visiblePasswordIds.has(password.id));
-    const maskedPassword = isMasked ? getPasswordMask(password.password) : password.password;
-    const memoValue = truncateText(password.memo || '', 256);
-    return <tr key={password.id}>
-      <CopyableCell label="カテゴリ" onCopy={handleCopy} value={password.category} />
-      <CopyableCell label="アプリサイト名" onCopy={handleCopy} value={password.appName} />
-      <CopyableCell label="ID" onCopy={handleCopy} value={password.userId} />
-      <CopyableCell label="メールアドレス" onCopy={handleCopy} value={password.email} />
-      <td className="password-cell"><div className="copyable-cell">
-        <span className="copyable-cell-value ellipsis-text">{truncateText(maskedPassword, 32)}</span>
-        <IonButton aria-label={isMasked ? 'パスワードのマスクを解除' : 'パスワードをマスク'} aria-pressed={!isMasked} className="copy-button" fill="clear" onClick={() => togglePasswordVisibility(password.id)} size="small" title={isMasked ? 'マスク解除' : 'マスク'}><IonIcon icon={isMasked ? eyeOutline : eyeOffOutline} slot="icon-only" /></IonButton>
-        <IonButton aria-label="パスワードをコピー" className="copy-button" disabled={!password.password} fill="clear" onClick={() => handleCopy(password.password, 'パスワード')} size="small" title="パスワードをコピー"><IonIcon icon={copyOutline} slot="icon-only" /></IonButton>
-      </div></td>
-      <CopyableCell label="URL" onCopy={handleCopy} value={password.url}>{password.url ? <a href={password.url} rel="noopener noreferrer" target="_blank">{truncateText(password.url, 32)}</a> : ''}</CopyableCell>
-      <td className="memo-cell"><span className="ellipsis-text memo-ellipsis">{memoValue}</span></td>
-      <td className="actions"><IonButton aria-label="詳細表示" className="detail-button" fill="clear" onClick={() => setDetailPassword(password)} size="small" title="詳細表示">詳細</IonButton><button className="btn-edit" onClick={() => onOpenModal(password)} title="編集" type="button">✎</button><button className="btn-delete" onClick={() => onDelete(password.id)} title="削除" type="button">🗑️</button></td>
-    </tr>;
-  };
-
-  const renderPasswordCard = (password: PasswordEntry) => {
-    const isMasked = !(password.id !== undefined && visiblePasswordIds.has(password.id));
-    const renderCardField = (label: string, value: string, content?: ReactNode, maxLength = 32, emptyText = '未登録') => <li><strong>{label}</strong><span className="password-card-value ellipsis-text">{content ?? (value ? truncateText(value, maxLength) : emptyText)}</span><IonButton aria-label={`${label}をコピー`} disabled={!value} fill="clear" onClick={() => handleCopy(value, label)} size="small" title={`${label}をコピー`}><IonIcon icon={copyOutline} slot="icon-only" /></IonButton></li>;
-    return <article className="password-card" key={password.id}>
-      <div className="password-card-header"><h2>{password.appName || '名称未設定'}</h2></div>
-      <ul className="password-card-fields">
-        {renderCardField('カテゴリ', password.category)}
-        {renderCardField('ID', password.userId)}
-        {renderCardField('メールアドレス', password.email)}
-        <li className="password-card-password"><strong>パスワード</strong><span className="password-card-value ellipsis-text">{isMasked ? <span className="masked-password">{getPasswordMask(password.password)}</span> : truncateText(password.password, 32)}</span><IonButton aria-label={isMasked ? 'パスワードのマスクを解除' : 'パスワードをマスク'} aria-pressed={!isMasked} fill="clear" onClick={() => togglePasswordVisibility(password.id)} size="small" title={isMasked ? 'マスク解除' : 'マスク'}><IonIcon icon={isMasked ? eyeOutline : eyeOffOutline} slot="icon-only" /></IonButton><IonButton aria-label="パスワードをコピー" disabled={!password.password} fill="clear" onClick={() => handleCopy(password.password, 'パスワード')} size="small" title="パスワードをコピー"><IonIcon icon={copyOutline} slot="icon-only" /></IonButton></li>
-        {renderCardField('URL', password.url, password.url ? <a href={password.url} rel="noopener noreferrer" target="_blank">{truncateText(password.url, 32)}</a> : undefined)}
-        {renderCardField('備考', password.memo, undefined, 256, '')}
-      </ul>
-      <div className="password-card-actions"><IonButton fill="clear" onClick={() => setDetailPassword(password)}>詳細</IonButton><IonButton fill="clear" onClick={() => onOpenModal(password)}>編集</IonButton><IonButton color="danger" fill="clear" onClick={() => onDelete(password.id)}>削除</IonButton></div>
-    </article>;
-  };
-
+  // 画面構成: 個別の表示責務は子コンポーネントへ委譲する。
   return <IonPage className="password-manager-page">
-    <IonHeader><IonToolbar>
-      <IonButtons slot="start">{onBack && <IonButton onClick={onBack}>戻る</IonButton>}</IonButtons>
-      <IonTitle>パスワード管理</IonTitle>
-      <IonButtons slot="end"><IonButton aria-label="設定" onClick={() => { setAutoLockDraft(autoLockSettings); setIsAppSettingsOpen(true); }} title="設定"><IonIcon icon={settingsOutline} slot="icon-only" /></IonButton></IonButtons>
-    </IonToolbar></IonHeader>
+    <IonHeader><IonToolbar><IonButtons slot="start">{onBack && <IonButton onClick={onBack}>戻る</IonButton>}</IonButtons><IonTitle>パスワード管理</IonTitle><IonButtons slot="end"><IonButton aria-label="設定" onClick={() => { setAutoLockDraft(autoLockSettings); setIsAppSettingsOpen(true); }} title="設定"><IonIcon icon={settingsOutline} slot="icon-only" /></IonButton></IonButtons></IonToolbar></IonHeader>
     <IonContent className="password-manager-content" ref={contentRef} scrollEvents onIonScroll={(event) => setShowQuickActions((event.detail?.scrollTop ?? 0) > 120)}>
-      <div className="header-section">
-        <IonSearchbar onIonInput={(event) => setSearchQuery(event.detail.value ?? '')} placeholder="パスワードを検索" value={searchQuery} />
-        <div className="category-filter">
-          <IonSelect aria-label="カテゴリで絞り込み" interface="popover" onIonChange={(event) => setCategoryFilter(event.detail.value)} placeholder="すべてのカテゴリ" value={categoryFilter}>
-            <IonSelectOption value="">すべてのカテゴリ</IonSelectOption>
-            {categories.map((category) => <IonSelectOption key={category} value={category}>{category}</IonSelectOption>)}
-          </IonSelect>
-        </div>
-      </div>
-      {loading ? <div className="loading">読み込み中...</div>
-        : passwords.length === 0 ? <div className="empty-state"><p>パスワードが登録されていません</p></div>
-          : filteredPasswords.length === 0 ? <div className="empty-state"><p>検索条件に一致するパスワードはありません</p></div>
-            : <><div className="passwords-table"><table>
-              <thead><tr><th>カテゴリ</th><th>アプリサイト名</th><th>ID</th><th>メールアドレス</th><th>パスワード <IonButton aria-label={allPasswordsVisible ? 'すべてのパスワードをマスク' : 'すべてのパスワードのマスクを解除'} className="toggle-all-button" fill="clear" onClick={toggleAllPasswordsVisibility} size="small">{allPasswordsVisible ? 'すべて隠す' : 'すべて表示'}</IonButton></th><th>URL</th><th>備考</th><th>操作</th></tr></thead>
-              <tbody>{filteredPasswords.map(renderPasswordRow)}</tbody>
-            </table></div><div className="password-cards">{filteredPasswords.map(renderPasswordCard)}</div></>}
-      <div className={`quick-action-stack ${showQuickActions ? 'visible' : ''}`}>
-        <button aria-label="上へ戻る" className="quick-action-button" onClick={handleQuickScrollTop} type="button"><IonIcon icon={chevronUpOutline} /></button>
-        <button aria-label="検索" className="quick-action-button" onClick={() => setIsSearchModalOpen(true)} type="button"><IonIcon icon={searchOutline} /></button>
-        <IonFabButton aria-label="新規追加" className="quick-fab-action" onClick={() => onOpenModal()}><IonIcon icon={addOutline} /></IonFabButton>
-      </div>
+      <div className="header-section"><IonSearchbar onIonInput={(event) => setSearchQuery(event.detail.value ?? '')} placeholder="パスワードを検索" value={searchQuery} /><div className="category-filter"><IonSelect aria-label="カテゴリで絞り込み" interface="popover" onIonChange={(event) => setCategoryFilter(event.detail.value)} placeholder="すべてのカテゴリ" value={categoryFilter}><IonSelectOption value="">すべてのカテゴリ</IonSelectOption>{categories.map((category) => <IonSelectOption key={category} value={category}>{category}</IonSelectOption>)}</IonSelect></div></div>
+      {loading ? <div className="loading">読み込み中...</div> : passwords.length === 0 ? <div className="empty-state"><p>パスワードが登録されていません</p></div> : filteredPasswords.length === 0 ? <div className="empty-state"><p>検索条件に一致するパスワードはありません</p></div> : <><PasswordTable passwords={filteredPasswords} visiblePasswordIds={visiblePasswordIds} allPasswordsVisible={allPasswordsVisible} onTogglePasswordVisibility={togglePasswordVisibility} onToggleAllPasswordsVisibility={toggleAllPasswordsVisibility} onCopy={handleCopy} onOpenDetail={setDetailPassword} onEdit={onOpenModal} onDelete={onDelete} /><PasswordCards passwords={filteredPasswords} visiblePasswordIds={visiblePasswordIds} onTogglePasswordVisibility={togglePasswordVisibility} onCopy={handleCopy} onOpenDetail={setDetailPassword} onEdit={onOpenModal} onDelete={onDelete} /></>}
+      <div className={`quick-action-stack ${showQuickActions ? 'visible' : ''}`}><button aria-label="上へ戻る" className="quick-action-button" onClick={handleQuickScrollTop} type="button"><IonIcon icon={chevronUpOutline} /></button><button aria-label="検索" className="quick-action-button" onClick={() => setIsSearchModalOpen(true)} type="button"><IonIcon icon={searchOutline} /></button><IonFabButton aria-label="新規追加" className="quick-fab-action" onClick={() => onOpenModal()}><IonIcon icon={addOutline} /></IonFabButton></div>
     </IonContent>
-    <IonModal isOpen={isModalOpen} onDidDismiss={() => { setIsFormPasswordVisible(false); onCloseModal(); }}>
-      <IonHeader><IonToolbar><IonTitle>{editingId !== null ? 'パスワード編集' : 'パスワード新規追加'}</IonTitle><IonButtons slot="end"><IonButton onClick={onCloseModal}>閉じる</IonButton></IonButtons></IonToolbar></IonHeader>
-      <IonContent><div className="form-container">
-        <IonItem><IonLabel position="stacked">カテゴリ *</IonLabel><IonInput value={formData.category} onIonInput={(event) => updateFormData('category', event.detail.value || '')} placeholder="例: メール、SNS、銀行" /></IonItem>
-        {categories.length > 0 && <IonItem><IonLabel>登録済みカテゴリから選択</IonLabel><IonSelect aria-label="登録済みカテゴリから選択" interface="popover" onIonChange={(event) => updateFormData('category', event.detail.value)} placeholder="カテゴリを選択"><IonSelectOption value="">選択しない</IonSelectOption>{categories.map((category) => <IonSelectOption key={category} value={category}>{category}</IonSelectOption>)}</IonSelect></IonItem>}
-        <IonItem><IonLabel position="stacked">アプリサイト名 *</IonLabel><IonInput value={formData.appName} onIonInput={(event) => updateFormData('appName', event.detail.value || '')} placeholder="例: Gmail、Twitter" /></IonItem>
-        <IonItem><IonLabel position="stacked">ID</IonLabel><IonInput value={formData.userId} onIonInput={(event) => updateFormData('userId', event.detail.value || '')} placeholder="ユーザーID" /></IonItem>
-        <IonItem><IonLabel position="stacked">メールアドレス</IonLabel><IonInput value={formData.email} onIonInput={(event) => updateFormData('email', event.detail.value || '')} placeholder="メールアドレス" type="email" /></IonItem>
-        <IonItem>
-          <IonLabel position="stacked">パスワード</IonLabel>
-          <IonInput value={formData.password} onIonInput={(event) => updateFormData('password', event.detail.value || '')} placeholder="パスワード" type={isFormPasswordVisible ? 'text' : 'password'} />
-          <IonButton aria-label={isFormPasswordVisible ? 'パスワードを非表示' : 'パスワードを表示'} fill="clear" onClick={() => setIsFormPasswordVisible((visible) => !visible)} slot="end" title={isFormPasswordVisible ? '非表示' : '表示'}>
-            <IonIcon icon={isFormPasswordVisible ? eyeOffOutline : eyeOutline} slot="icon-only" />
-          </IonButton>
-        </IonItem>
-        {editingId === null && <IonButton className="generate-password-button" fill="outline" onClick={openGenerator}><IonIcon icon={addOutline} slot="start" />パスワードを生成</IonButton>}
-        <IonItem><IonLabel position="stacked">URL</IonLabel><IonInput value={formData.url} onIonInput={(event) => updateFormData('url', event.detail.value || '')} placeholder="https://example.com" type="url" /></IonItem>
-        <IonItem><IonLabel position="stacked">備考</IonLabel><IonTextarea autoGrow value={formData.memo} onIonInput={(event) => updateFormData('memo', event.detail.value || '')} placeholder="メモ" /></IonItem>
-        <div className="form-actions"><IonButton color="primary" expand="block" onClick={onSave}>保存</IonButton><IonButton color="secondary" expand="block" onClick={onCloseModal}>キャンセル</IonButton></div>
-      </div></IonContent>
-    </IonModal>
-    <IonModal isOpen={isGeneratorOpen} onDidDismiss={() => setIsGeneratorOpen(false)}>
-      <IonHeader><IonToolbar><IonTitle>パスワード生成</IonTitle><IonButtons slot="end"><IonButton onClick={() => setIsGeneratorOpen(false)}>閉じる</IonButton></IonButtons></IonToolbar></IonHeader>
-      <IonContent><div className="generator-container"><p className="generated-password">{generatedPassword}</p><IonButton expand="block" fill="outline" onClick={() => setGeneratedPassword(generatePassword(generatorSettings))}>再生成</IonButton><IonButton expand="block" fill="outline" onClick={() => handleCopy(generatedPassword, '生成したパスワード')}>コピー</IonButton><IonButton expand="block" onClick={() => { updateFormData('password', generatedPassword); setIsGeneratorOpen(false); }}>このパスワードを使用</IonButton>
-        <div className="generator-settings"><h2>生成設定</h2><IonItem className="generator-length-item"><IonLabel>文字数（1〜256）</IonLabel><IonInput aria-label="生成するパスワードの文字数" inputMode="numeric" max={MAX_GENERATED_PASSWORD_LENGTH} min={MIN_GENERATED_PASSWORD_LENGTH} onIonInput={(event) => setGeneratorSettings({ ...generatorSettings, length: Math.min(MAX_GENERATED_PASSWORD_LENGTH, Math.max(MIN_GENERATED_PASSWORD_LENGTH, Number(event.detail.value) || MIN_GENERATED_PASSWORD_LENGTH)) })} type="number" value={generatorSettings.length} /></IonItem><IonItem><IonLabel>英大文字</IonLabel><IonToggle checked={generatorSettings.uppercase} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, uppercase: event.detail.checked })} /></IonItem><IonItem><IonLabel>英小文字</IonLabel><IonToggle checked={generatorSettings.lowercase} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, lowercase: event.detail.checked })} /></IonItem><IonItem><IonLabel>数字</IonLabel><IonToggle checked={generatorSettings.numbers} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, numbers: event.detail.checked })} /></IonItem><IonItem><IonLabel>記号</IonLabel><IonToggle checked={generatorSettings.symbols} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, symbols: event.detail.checked })} /></IonItem><IonItem><IonLabel>紛らわしい文字を除外</IonLabel><IonToggle checked={generatorSettings.excludeAmbiguous} onIonChange={(event) => setGeneratorSettings({ ...generatorSettings, excludeAmbiguous: event.detail.checked })} /></IonItem></div>
-      </div></IonContent>
-    </IonModal>
-    <IonModal isOpen={isAppSettingsOpen} onDidDismiss={() => setIsAppSettingsOpen(false)}>
-      <IonHeader><IonToolbar><IonTitle>設定</IonTitle><IonButtons slot="end"><IonButton onClick={() => setIsAppSettingsOpen(false)}>閉じる</IonButton></IonButtons></IonToolbar></IonHeader>
-      <IonContent><div className="settings-container">
-        <h2>データ</h2><p>データはこの端末のアプリ内に保存されます。エクスポートやインポートは設定画面から行えます。</p><IonButton expand="block" fill="outline" onClick={confirmExportPasswords}>データをエクスポート</IonButton><input accept="application/json" className="import-input" onChange={importPasswords} ref={importInputRef} type="file" /><IonButton expand="block" fill="outline" onClick={() => importInputRef.current?.click()}>データをインポート</IonButton>
-        <h2>マスターパスワードの変更</h2><IonItem><IonLabel position="stacked">現在のパスワード</IonLabel><IonInput onIonInput={(event) => setCurrentMasterPassword(event.detail.value ?? '')} type="password" value={currentMasterPassword} /></IonItem><IonItem><IonLabel position="stacked">新しいパスワード</IonLabel><IonInput onIonInput={(event) => setNewMasterPassword(event.detail.value ?? '')} type="password" value={newMasterPassword} /></IonItem><IonItem><IonLabel position="stacked">新しいパスワード（確認）</IonLabel><IonInput onIonInput={(event) => setMasterPasswordConfirmation(event.detail.value ?? '')} type="password" value={masterPasswordConfirmation} /></IonItem><IonButton expand="block" fill="outline" onClick={changeMasterPassword}>マスターパスワードを変更</IonButton>
-        {isBiometricSupported && <><h2>生体認証</h2><p>このスマホで生体認証を使ってロックを解除します。設定し直すと、現在の端末認証情報を更新できます。</p><IonButton expand="block" fill="outline" onClick={() => void setupBiometricAuthentication()}>生体認証を設定する</IonButton></>}
-        <div className="auto-lock-section"><h2>自動ロック</h2><IonItem className="auto-lock-toggle-item"><IonLabel>自動ロックを有効にする</IonLabel><IonToggle checked={autoLockDraft.enabled} onIonChange={(event) => setAutoLockDraft({ ...autoLockDraft, enabled: event.detail.checked })} /></IonItem><IonItem className="auto-lock-duration-item" disabled={!autoLockDraft.enabled}><IonLabel>ロックまでの時間（分）</IonLabel><IonInput inputMode="numeric" max="60" min="1" onIonInput={(event) => setAutoLockDraft({ ...autoLockDraft, minutes: Number(event.detail.value) || 1 })} type="number" value={autoLockDraft.minutes} /></IonItem><IonButton expand="block" onClick={saveAppSettings}>自動ロック設定を保存</IonButton></div>
-        <a className="terms-link-button" href="#terms" onClick={(event) => { event.preventDefault(); setIsAppSettingsOpen(false); onOpenTerms?.(); }} role="link">利用規約</a>
-        <ProductLinks />
-      </div></IonContent>
-    </IonModal>
-    <IonModal className="export-confirmation-modal" isOpen={isExportConfirmOpen} onDidDismiss={() => setIsExportConfirmOpen(false)}>
-      <IonHeader><IonToolbar><IonTitle>エクスポートの確認</IonTitle><IonButtons slot="end"><IonButton onClick={() => setIsExportConfirmOpen(false)}>閉じる</IonButton></IonButtons></IonToolbar></IonHeader>
-      <IonContent><div className="settings-container export-confirmation-content">
-        <h2>データの取り扱いに注意してください</h2>
-        <p>エクスポートファイルには登録パスワードが平文で含まれます。安全な場所に保管し、不要になったら削除してください。</p>
-        <p>データはこの端末のブラウザ内に保存されます。同じ端末・同じブラウザ・同じブラウザプロファイルで利用してください。端末やブラウザを変更する場合は、エクスポートしたファイルを変更先でインポートしてください。</p>
-        <div className="export-confirmation-actions"><IonButton expand="block" onClick={handleExportPasswords}>エクスポートする</IonButton><IonButton expand="block" fill="outline" onClick={() => setIsExportConfirmOpen(false)}>キャンセル</IonButton></div>
-      </div></IonContent>
-    </IonModal>
-    <IonModal className="search-modal" isOpen={isSearchModalOpen} onDidDismiss={() => setIsSearchModalOpen(false)}>
-      <IonHeader><IonToolbar><IonTitle>検索</IonTitle><IonButtons slot="end"><IonButton onClick={() => setIsSearchModalOpen(false)}>閉じる</IonButton></IonButtons></IonToolbar></IonHeader>
-      <IonContent><div className="search-modal-content">
-        <IonSearchbar onIonInput={(event) => setSearchQuery(event.detail.value ?? '')} placeholder="フリーワード検索" value={searchQuery} />
-        <div className="category-filter search-modal-filter">
-          <IonSelect aria-label="カテゴリで絞り込み" interface="popover" onIonChange={(event) => setCategoryFilter(event.detail.value)} placeholder="すべてのカテゴリ" value={categoryFilter}>
-            <IonSelectOption value="">すべてのカテゴリ</IonSelectOption>
-            {categories.map((category) => <IonSelectOption key={category} value={category}>{category}</IonSelectOption>)}
-          </IonSelect>
-        </div>
-        <IonButton expand="block" fill="outline" onClick={() => { setSearchQuery(''); setCategoryFilter(''); }}>条件をクリア</IonButton>
-      </div></IonContent>
-    </IonModal>
-    <IonModal className="detail-modal" isOpen={detailPassword !== null} onDidDismiss={closeDetail}>
-      <IonHeader><IonToolbar><IonTitle>詳細</IonTitle><IonButtons slot="end"><IonButton onClick={closeDetail}>閉じる</IonButton></IonButtons></IonToolbar></IonHeader>
-      <IonContent><div className="detail-modal-content">
-        {detailPassword && <><>{renderDetailField('カテゴリ', detailPassword.category)}</><>{renderDetailField('アプリサイト名', detailPassword.appName)}</><>{renderDetailField('ID', detailPassword.userId)}</><>{renderDetailField('メールアドレス', detailPassword.email)}</><div className="detail-field"><h3>パスワード</h3><div className="detail-password-value"><p>{isDetailPasswordVisible ? detailPassword.password || '未登録' : detailPassword.password ? getPasswordMask(detailPassword.password) : '未登録'}</p><IonButton aria-label={isDetailPasswordVisible ? 'パスワードをマスク' : 'パスワードのマスクを解除'} fill="clear" onClick={() => setIsDetailPasswordVisible((visible) => !visible)} size="small" title={isDetailPasswordVisible ? 'マスク' : 'マスク解除'}><IonIcon icon={isDetailPasswordVisible ? eyeOffOutline : eyeOutline} slot="icon-only" /></IonButton><IonButton aria-label="パスワードをコピー" disabled={!detailPassword.password} fill="clear" onClick={() => handleCopy(detailPassword.password, 'パスワード')} size="small" title="パスワードをコピー"><IonIcon icon={copyOutline} slot="icon-only" /></IonButton></div></div><>{renderDetailField('URL', detailPassword.url)}</><div className="detail-field"><h3>備考</h3><p>{detailPassword.memo}</p></div><div className="detail-actions"><IonButton expand="block" fill="outline" onClick={editDetail}>編集</IonButton><IonButton color="danger" expand="block" fill="outline" onClick={deleteDetail}>削除</IonButton></div></>}
-      </div></IonContent>
-    </IonModal>
-    <IonModal isOpen={memoDetail !== null} onDidDismiss={() => setMemoDetail(null)}>
-      <IonHeader><IonToolbar><IonTitle>備考</IonTitle><IonButtons slot="end"><IonButton onClick={() => setMemoDetail(null)}>閉じる</IonButton></IonButtons></IonToolbar></IonHeader>
-      <IonContent><div className="memo-detail">{memoDetail?.memo}</div></IonContent>
-    </IonModal>
+    <PasswordFormModal isOpen={isModalOpen} editingId={editingId} formData={formData} categories={categories} isPasswordVisible={isFormPasswordVisible} onFormDataChange={onFormDataChange} onTogglePasswordVisibility={() => setIsFormPasswordVisible((visible) => !visible)} onOpenGenerator={openGenerator} onSave={onSave} onClose={() => { setIsFormPasswordVisible(false); onCloseModal(); }} />
+    <PasswordGeneratorModal isOpen={isGeneratorOpen} generatedPassword={generatedPassword} settings={generatorSettings} onSettingsChange={setGeneratorSettings} onRegenerate={() => setGeneratedPassword(generatePassword(generatorSettings))} onCopy={() => handleCopy(generatedPassword, '生成したパスワード')} onUse={() => { onFormDataChange({ ...formData, password: generatedPassword }); setIsGeneratorOpen(false); }} onClose={() => setIsGeneratorOpen(false)} />
+    <SettingsModal isOpen={isAppSettingsOpen} autoLockDraft={autoLockDraft} isBiometricSupported={isBiometricSupported} currentMasterPassword={currentMasterPassword} newMasterPassword={newMasterPassword} masterPasswordConfirmation={masterPasswordConfirmation} onAutoLockDraftChange={setAutoLockDraft} onCurrentMasterPasswordChange={setCurrentMasterPassword} onNewMasterPasswordChange={setNewMasterPassword} onMasterPasswordConfirmationChange={setMasterPasswordConfirmation} onExport={() => { setIsAppSettingsOpen(false); setIsExportConfirmOpen(true); }} onImport={() => importInputRef.current?.click()} onSaveAutoLock={saveAppSettings} onChangeMasterPassword={changeMasterPassword} onBiometricSetup={() => void onBiometricSetup()} onOpenTerms={() => { setIsAppSettingsOpen(false); onOpenTerms?.(); }} onClose={() => setIsAppSettingsOpen(false)} />
+    <input accept="application/json" className="import-input" onChange={importPasswords} ref={importInputRef} type="file" />
+    <ExportConfirmationModal isOpen={isExportConfirmOpen} onConfirm={() => { setIsExportConfirmOpen(false); exportPasswords(); }} onClose={() => setIsExportConfirmOpen(false)} />
+    <SearchModal isOpen={isSearchModalOpen} searchQuery={searchQuery} categoryFilter={categoryFilter} categories={categories} onSearchQueryChange={setSearchQuery} onCategoryChange={setCategoryFilter} onClear={() => { setSearchQuery(''); setCategoryFilter(''); }} onClose={() => setIsSearchModalOpen(false)} />
+    <DetailModal password={detailPassword} isPasswordVisible={isDetailPasswordVisible} onTogglePasswordVisibility={() => setIsDetailPasswordVisible((visible) => !visible)} onCopy={handleCopy} onEdit={editDetail} onDelete={deleteDetail} onClose={closeDetail} />
+    <MemoModal memo={memoDetail} onClose={() => setMemoDetail(null)} />
     <IonToast duration={2000} isOpen={Boolean(toastMessage)} message={toastMessage} onDidDismiss={() => setToastMessage('')} />
   </IonPage>;
 };
