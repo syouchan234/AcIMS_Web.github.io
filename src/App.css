@@ -33,3 +33,20 @@
 .auth-initialize-action {
   margin-top: 24px;
 }
+
+.terms-page {
+  padding: 20px;
+}
+
+.terms-page h2 {
+  margin-top: 0;
+}
+
+.terms-page h3 {
+  margin: 18px 0 8px;
+}
+
+.terms-page p {
+  margin: 0;
+  line-height: 1.7;
+}

@@ -6,6 +6,7 @@ import './MainHome.css';
 
 interface MainHomeProps {
   onOpenPasswordManager: () => void;
+  onOpenTerms: () => void;
 }
 
 type InstallPlatform = 'iphone' | 'android' | 'windows';
@@ -16,7 +17,7 @@ const getDefaultInstallPlatform = (): InstallPlatform => {
   return 'windows';
 };
 
-const MainHome: React.FC<MainHomeProps> = ({ onOpenPasswordManager }) => {
+const MainHome: React.FC<MainHomeProps> = ({ onOpenPasswordManager, onOpenTerms }) => {
   const [installPlatform, setInstallPlatform] = useState<InstallPlatform>(getDefaultInstallPlatform);
 
   return <IonPage>
@@ -34,6 +35,10 @@ const MainHome: React.FC<MainHomeProps> = ({ onOpenPasswordManager }) => {
         </section>
         <section className="main-home-actions">
           <IonButton color="primary" expand="block" onClick={onOpenPasswordManager}>パスワード管理を開く</IonButton>
+        </section>
+        <section className="main-home-notice" aria-labelledby="main-home-notice-title">
+          <h2 id="main-home-notice-title">ご利用上の注意</h2>
+          <p>データはこの端末のブラウザ内に保存されます。同じ端末・同じブラウザ・同じブラウザプロファイルで利用してください。端末やブラウザを変更する場合は、設定からデータをエクスポートし、変更先でインポートしてください。</p>
         </section>
         <section className="install-guide" aria-labelledby="install-guide-title">
           <h2 id="install-guide-title">アプリとして使う</h2>
@@ -79,6 +84,9 @@ const MainHome: React.FC<MainHomeProps> = ({ onOpenPasswordManager }) => {
             <p className="install-note">ブラウザの安全設定により、このサイトから自動でデスクトップへショートカットを作成することはできません。</p>
           </div>}
         </section>
+        <div className="main-home-footer-actions">
+          <a href="#terms" onClick={(event) => { event.preventDefault(); onOpenTerms(); }} role="link">利用規約</a>
+        </div>
         <ProductLinks />
       </main>
     </IonContent>

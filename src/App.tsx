@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   IonApp,
   IonButton,
@@ -7,6 +7,7 @@ import {
   IonInput,
   IonItem,
   IonLabel,
+  IonModal,
   IonPage,
   IonTitle,
   IonToolbar,
@@ -35,6 +36,7 @@ import './theme/variables.css';
 setupIonicReact();
 
 const App: React.FC = () => {
+  const [showTerms, setShowTerms] = useState(false);
   const {
     showSetup,
     showHome,
@@ -111,6 +113,7 @@ const App: React.FC = () => {
       {showHome && (
         <MainHome
           onOpenPasswordManager={goToPasswordManager}
+          onOpenTerms={() => setShowTerms(true)}
         />
       )}
 
@@ -177,8 +180,32 @@ const App: React.FC = () => {
           onBiometricSetup={setupBiometricAuthentication}
           onBack={goToHome}
           onMasterPasswordChange={changeMasterPassword}
+          onOpenTerms={() => setShowTerms(true)}
         />
       )}
+
+      <IonModal isOpen={showTerms} onDidDismiss={() => setShowTerms(false)}>
+        <IonHeader>
+          <IonToolbar>
+            <IonTitle>利用規約</IonTitle>
+          </IonToolbar>
+        </IonHeader>
+        <IonContent className="ion-padding">
+          <div className="terms-page">
+            <h2>利用規約</h2>
+            <p>本サービスは、ユーザーが登録したアカウント情報をローカル端末で安全に管理するための補助ツールです。</p>
+            <h3>1. 利用目的</h3>
+            <p>アカウント情報やログイン情報を整理し、必要なときにすぐ参照できるようにするために利用します。</p>
+            <h3>2. 保存責任</h3>
+            <p>入力した情報は端末に保存されます。端末の紛失や第三者アクセスが起きた場合、情報が漏えいする可能性があります。</p>
+            <h3>3. 免責事項</h3>
+            <p>本サービスはデータ保護と紛失防止を保証するものではありません。重要情報はバックアップとマスターパスワード管理を十分に行ってください。</p>
+            <h3>4. 運用</h3>
+            <p>サービス改善のために利用状況やエラー情報を確認する場合がありますが、個人を特定できる情報を収集しません。</p>
+            <IonButton expand="block" onClick={() => setShowTerms(false)}>閉じる</IonButton>
+          </div>
+        </IonContent>
+      </IonModal>
     </IonApp>
   );
 };

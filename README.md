@@ -43,6 +43,7 @@ npm run build
 - [利用ガイド](docs/USAGE.md)
 - [アーキテクチャとデータ保護](docs/ARCHITECTURE.md)
 - [開発・デプロイ手順](docs/DEVELOPMENT.md)
+- [要件定義書](docs/REQUIREMENTS.md)
 
 ## 注意事項
 

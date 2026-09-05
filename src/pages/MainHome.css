@@ -54,6 +54,39 @@
   margin-top: 32px;
 }
 
+.main-home-notice {
+  margin-top: 20px;
+  padding: 16px;
+  border-left: 4px solid var(--ion-color-warning);
+  background: var(--ion-color-light);
+}
+
+.main-home-notice h2,
+.main-home-notice p {
+  margin: 0;
+}
+
+.main-home-notice h2 {
+  font-size: 16px;
+}
+
+.main-home-notice p {
+  margin-top: 6px;
+  color: var(--ion-color-medium-shade);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.main-home-footer-actions {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.main-home-footer-actions a {
+  color: var(--ion-color-primary);
+  text-decoration: none;
+}
+
 .install-guide {
   margin-top: 24px;
   padding: 16px;
