@@ -54,6 +54,16 @@
   margin-top: 32px;
 }
 
+.main-home-footer-actions {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.main-home-footer-actions a {
+  color: var(--ion-color-primary);
+  text-decoration: none;
+}
+
 .install-guide {
   margin-top: 24px;
   padding: 16px;

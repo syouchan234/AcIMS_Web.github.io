@@ -29,4 +29,11 @@ describe('App flow', () => {
     expect(screen.getByText('マスターパスワードを入力')).toBeInTheDocument();
     expect(screen.getByText('認証して開く')).toBeInTheDocument();
   });
+
+  test('shows the terms page link from the home screen', () => {
+    render(<App />);
+
+    expect(screen.getByRole('link', { name: '利用規約' })).toBeInTheDocument();
+  });
+
 });

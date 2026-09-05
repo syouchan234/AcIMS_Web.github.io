@@ -29,4 +29,5 @@ export interface PasswordManagerViewProps {
   isBiometricSupported: boolean;
   onBiometricSetup: () => Promise<boolean>;
   onMasterPasswordChange: (currentPassword: string, newPassword: string, confirmation: string) => Promise<string | null>;
+  onOpenTerms?: () => void;
 }

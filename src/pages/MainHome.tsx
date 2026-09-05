@@ -6,6 +6,7 @@ import './MainHome.css';
 
 interface MainHomeProps {
   onOpenPasswordManager: () => void;
+  onOpenTerms: () => void;
 }
 
 type InstallPlatform = 'iphone' | 'android' | 'windows';
@@ -16,7 +17,7 @@ const getDefaultInstallPlatform = (): InstallPlatform => {
   return 'windows';
 };
 
-const MainHome: React.FC<MainHomeProps> = ({ onOpenPasswordManager }) => {
+const MainHome: React.FC<MainHomeProps> = ({ onOpenPasswordManager, onOpenTerms }) => {
   const [installPlatform, setInstallPlatform] = useState<InstallPlatform>(getDefaultInstallPlatform);
 
   return <IonPage>
@@ -79,6 +80,9 @@ const MainHome: React.FC<MainHomeProps> = ({ onOpenPasswordManager }) => {
             <p className="install-note">ブラウザの安全設定により、このサイトから自動でデスクトップへショートカットを作成することはできません。</p>
           </div>}
         </section>
+        <div className="main-home-footer-actions">
+          <a href="#terms" onClick={(event) => { event.preventDefault(); onOpenTerms(); }} role="link">利用規約</a>
+        </div>
         <ProductLinks />
       </main>
     </IonContent>
