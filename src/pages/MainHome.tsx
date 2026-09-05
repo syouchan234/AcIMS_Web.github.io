@@ -36,6 +36,10 @@ const MainHome: React.FC<MainHomeProps> = ({ onOpenPasswordManager, onOpenTerms 
         <section className="main-home-actions">
           <IonButton color="primary" expand="block" onClick={onOpenPasswordManager}>パスワード管理を開く</IonButton>
         </section>
+        <section className="main-home-notice" aria-labelledby="main-home-notice-title">
+          <h2 id="main-home-notice-title">ご利用上の注意</h2>
+          <p>データはこの端末のブラウザ内に保存されます。同じ端末・同じブラウザ・同じブラウザプロファイルで利用してください。端末やブラウザを変更する場合は、設定からデータをエクスポートし、変更先でインポートしてください。</p>
+        </section>
         <section className="install-guide" aria-labelledby="install-guide-title">
           <h2 id="install-guide-title">アプリとして使う</h2>
           <p>よく使う端末に登録すると、次回からすぐに開けます。</p>

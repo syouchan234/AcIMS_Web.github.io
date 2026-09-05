@@ -136,6 +136,7 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
   const [generatorSettings, setGeneratorSettings] = useState<GeneratorSettings>(defaultGeneratorSettings);
   const [isFormPasswordVisible, setIsFormPasswordVisible] = useState(false);
   const [isAppSettingsOpen, setIsAppSettingsOpen] = useState(false);
+  const [isExportConfirmOpen, setIsExportConfirmOpen] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [detailPassword, setDetailPassword] = useState<PasswordEntry | null>(null);
   const [isDetailPasswordVisible, setIsDetailPasswordVisible] = useState(false);
@@ -222,6 +223,14 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
     const link = document.createElement('a');
     link.href = url; link.download = `acims-passwords-${new Date().toISOString().slice(0, 10)}.json`; link.click();
     URL.revokeObjectURL(url);
+  };
+  const confirmExportPasswords = () => {
+    setIsAppSettingsOpen(false);
+    setIsExportConfirmOpen(true);
+  };
+  const handleExportPasswords = () => {
+    setIsExportConfirmOpen(false);
+    exportPasswords();
   };
   const importPasswords = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -365,12 +374,21 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
     <IonModal isOpen={isAppSettingsOpen} onDidDismiss={() => setIsAppSettingsOpen(false)}>
       <IonHeader><IonToolbar><IonTitle>設定</IonTitle><IonButtons slot="end"><IonButton onClick={() => setIsAppSettingsOpen(false)}>閉じる</IonButton></IonButtons></IonToolbar></IonHeader>
       <IonContent><div className="settings-container">
-        <h2>データ</h2><p>エクスポートしたファイルには登録パスワードが平文で含まれます。安全な場所に保管してください。</p><IonButton expand="block" fill="outline" onClick={exportPasswords}>データをエクスポート</IonButton><input accept="application/json" className="import-input" onChange={importPasswords} ref={importInputRef} type="file" /><IonButton expand="block" fill="outline" onClick={() => importInputRef.current?.click()}>データをインポート</IonButton>
+        <h2>データ</h2><p>データはこの端末のアプリ内に保存されます。エクスポートやインポートは設定画面から行えます。</p><IonButton expand="block" fill="outline" onClick={confirmExportPasswords}>データをエクスポート</IonButton><input accept="application/json" className="import-input" onChange={importPasswords} ref={importInputRef} type="file" /><IonButton expand="block" fill="outline" onClick={() => importInputRef.current?.click()}>データをインポート</IonButton>
         <h2>マスターパスワードの変更</h2><IonItem><IonLabel position="stacked">現在のパスワード</IonLabel><IonInput onIonInput={(event) => setCurrentMasterPassword(event.detail.value ?? '')} type="password" value={currentMasterPassword} /></IonItem><IonItem><IonLabel position="stacked">新しいパスワード</IonLabel><IonInput onIonInput={(event) => setNewMasterPassword(event.detail.value ?? '')} type="password" value={newMasterPassword} /></IonItem><IonItem><IonLabel position="stacked">新しいパスワード（確認）</IonLabel><IonInput onIonInput={(event) => setMasterPasswordConfirmation(event.detail.value ?? '')} type="password" value={masterPasswordConfirmation} /></IonItem><IonButton expand="block" fill="outline" onClick={changeMasterPassword}>マスターパスワードを変更</IonButton>
         {isBiometricSupported && <><h2>生体認証</h2><p>このスマホで生体認証を使ってロックを解除します。設定し直すと、現在の端末認証情報を更新できます。</p><IonButton expand="block" fill="outline" onClick={() => void setupBiometricAuthentication()}>生体認証を設定する</IonButton></>}
         <div className="auto-lock-section"><h2>自動ロック</h2><IonItem className="auto-lock-toggle-item"><IonLabel>自動ロックを有効にする</IonLabel><IonToggle checked={autoLockDraft.enabled} onIonChange={(event) => setAutoLockDraft({ ...autoLockDraft, enabled: event.detail.checked })} /></IonItem><IonItem className="auto-lock-duration-item" disabled={!autoLockDraft.enabled}><IonLabel>ロックまでの時間（分）</IonLabel><IonInput inputMode="numeric" max="60" min="1" onIonInput={(event) => setAutoLockDraft({ ...autoLockDraft, minutes: Number(event.detail.value) || 1 })} type="number" value={autoLockDraft.minutes} /></IonItem><IonButton expand="block" onClick={saveAppSettings}>自動ロック設定を保存</IonButton></div>
         <a className="terms-link-button" href="#terms" onClick={(event) => { event.preventDefault(); setIsAppSettingsOpen(false); onOpenTerms?.(); }} role="link">利用規約</a>
         <ProductLinks />
+      </div></IonContent>
+    </IonModal>
+    <IonModal className="export-confirmation-modal" isOpen={isExportConfirmOpen} onDidDismiss={() => setIsExportConfirmOpen(false)}>
+      <IonHeader><IonToolbar><IonTitle>エクスポートの確認</IonTitle><IonButtons slot="end"><IonButton onClick={() => setIsExportConfirmOpen(false)}>閉じる</IonButton></IonButtons></IonToolbar></IonHeader>
+      <IonContent><div className="settings-container export-confirmation-content">
+        <h2>データの取り扱いに注意してください</h2>
+        <p>エクスポートファイルには登録パスワードが平文で含まれます。安全な場所に保管し、不要になったら削除してください。</p>
+        <p>データはこの端末のブラウザ内に保存されます。同じ端末・同じブラウザ・同じブラウザプロファイルで利用してください。端末やブラウザを変更する場合は、エクスポートしたファイルを変更先でインポートしてください。</p>
+        <div className="export-confirmation-actions"><IonButton expand="block" onClick={handleExportPasswords}>エクスポートする</IonButton><IonButton expand="block" fill="outline" onClick={() => setIsExportConfirmOpen(false)}>キャンセル</IonButton></div>
       </div></IonContent>
     </IonModal>
     <IonModal className="search-modal" isOpen={isSearchModalOpen} onDidDismiss={() => setIsSearchModalOpen(false)}>
