@@ -16,25 +16,31 @@ const EmailSuggestionInput: React.FC<EmailSuggestionInputProps> = ({ value, regi
     const normalizedValue = value.toLocaleLowerCase();
     const registeredSuggestions = registeredEmails.filter((email) => email.toLocaleLowerCase().includes(normalizedValue));
     const atIndex = value.indexOf('@');
-    const domainSuggestions = atIndex > 0
+    const localPart = atIndex >= 0 ? value.slice(0, atIndex) : '';
+    const domainPart = atIndex >= 0 ? value.slice(atIndex + 1).toLocaleLowerCase() : '';
+    const domainSuggestions = localPart
       ? emailDomains
-        .filter((domain) => `${value.slice(0, atIndex)}@${domain}`.toLocaleLowerCase().startsWith(normalizedValue))
-        .map((domain) => `${value.slice(0, atIndex)}@${domain}`)
+        .filter((domain) => domain.startsWith(domainPart))
+        .map((domain) => `${localPart}@${domain}`)
       : [];
-    return [...new Set([...registeredSuggestions, ...domainSuggestions])].slice(0, 8);
+    return [...new Set([...registeredSuggestions, ...domainSuggestions])];
   }, [registeredEmails, value]);
 
   return <div className="email-suggestion-field">
     <IonInput
+      autocapitalize="none"
+      autocomplete="off"
+      autocorrect="off"
       value={value}
       onIonFocus={() => setIsFocused(true)}
       onIonBlur={() => setTimeout(() => setIsFocused(false), 150)}
       onIonInput={(event) => onChange(event.detail.value || '')}
       placeholder="メールアドレス"
+      spellcheck={false}
       type="email"
     />
     {isFocused && suggestions.length > 0 && <div className="email-suggestions" role="listbox" aria-label="メールアドレス候補">
-      {suggestions.map((suggestion) => <button key={suggestion} type="button" role="option" onMouseDown={(event) => event.preventDefault()} onClick={() => { onChange(suggestion); setIsFocused(false); }}>{suggestion}</button>)}
+      {suggestions.map((suggestion) => <button key={suggestion} type="button" role="option" onPointerDown={(event) => event.preventDefault()} onClick={() => { onChange(suggestion); setIsFocused(false); }}>{suggestion}</button>)}
     </div>}
   </div>;
 };

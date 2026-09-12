@@ -38,6 +38,7 @@ setupIonicReact();
 
 const App: React.FC = () => {
   const [showTerms, setShowTerms] = useState(false);
+  const isDesktopBrowser = typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches;
   const [floatingActionSettings, setFloatingActionSettings] = useState(loadFloatingActionSettings);
   const updateFloatingActionSettings = (settings: FloatingActionSettings) => {
     setFloatingActionSettings(settings);
@@ -134,7 +135,7 @@ const App: React.FC = () => {
             </IonToolbar>
           </IonHeader>
           <IonContent className="ion-padding">
-            <div className="auth-form">
+            <div className="auth-form" onKeyDown={(event) => { if (isDesktopBrowser && event.key === 'Enter') void handleAuth(); }}>
               <h2>マスターパスワードを入力</h2>
               <p>パスワード管理画面を開くにはマスターパスワードが必要です。</p>
 
