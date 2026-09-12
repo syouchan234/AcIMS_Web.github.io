@@ -2,13 +2,22 @@ import type { StoredMasterPassword } from './security';
 
 const MASTER_PASSWORD_KEY = 'acims_master_password';
 const AUTO_LOCK_SETTINGS_KEY = 'acims_auto_lock_settings';
+const FLOATING_ACTION_SETTINGS_KEY = 'acims_floating_action_settings';
 
 export interface AutoLockSettings {
   enabled: boolean;
   minutes: number;
 }
 
-const DEFAULT_AUTO_LOCK_SETTINGS: AutoLockSettings = { enabled: false, minutes: 5 };
+const DEFAULT_AUTO_LOCK_SETTINGS: AutoLockSettings = { enabled: true, minutes: 5 };
+
+export interface FloatingActionSettings {
+  enabled: boolean;
+  showScrollTop: boolean;
+  showScrollBottom: boolean;
+}
+
+const DEFAULT_FLOATING_ACTION_SETTINGS: FloatingActionSettings = { enabled: true, showScrollTop: true, showScrollBottom: false };
 
 /** 現行のハッシュ化済みレコードと旧形式の平文データを読み込む。 */
 export const loadMasterPasswordRecord = (): StoredMasterPassword | string | null => {
@@ -48,4 +57,19 @@ export const loadAutoLockSettings = (): AutoLockSettings => {
 /** 自動ロック設定を保存する。 */
 export const saveAutoLockSettings = (settings: AutoLockSettings) => {
   localStorage.setItem(AUTO_LOCK_SETTINGS_KEY, JSON.stringify(settings));
+};
+
+/** スクロール用フローティングボタンの表示設定を読み込む。 */
+export const loadFloatingActionSettings = (): FloatingActionSettings => {
+  try {
+    const stored = localStorage.getItem(FLOATING_ACTION_SETTINGS_KEY);
+    return stored ? { ...DEFAULT_FLOATING_ACTION_SETTINGS, ...JSON.parse(stored) } : DEFAULT_FLOATING_ACTION_SETTINGS;
+  } catch {
+    return DEFAULT_FLOATING_ACTION_SETTINGS;
+  }
+};
+
+/** スクロール用フローティングボタンの表示設定を保存する。 */
+export const saveFloatingActionSettings = (settings: FloatingActionSettings) => {
+  localStorage.setItem(FLOATING_ACTION_SETTINGS_KEY, JSON.stringify(settings));
 };

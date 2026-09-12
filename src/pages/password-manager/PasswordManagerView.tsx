@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { IonButton, IonButtons, IonContent, IonFabButton, IonHeader, IonIcon, IonPage, IonSearchbar, IonSelect, IonSelectOption, IonTitle, IonToast, IonToolbar } from '@ionic/react';
-import { addOutline, chevronUpOutline, searchOutline, settingsOutline } from 'ionicons/icons';
+import { addOutline, chevronDownOutline, chevronUpOutline, searchOutline, settingsOutline } from 'ionicons/icons';
 import type { PasswordEntry } from '../../services/passwordDb';
 import type { PasswordManagerViewProps } from './types';
 import '../PasswordManager.css';
@@ -18,7 +18,7 @@ import { defaultGeneratorSettings, generatePassword, isImportEntry, toPasswordEn
 const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
   onBack, passwords, loading, isModalOpen, editingId, formData, onOpenModal, onCloseModal,
   onSave, onDelete, onFormDataChange, onImport, autoLockSettings, onAutoLockSettingsChange, onMasterPasswordChange,
-  isBiometricSupported, onBiometricSetup, onOpenTerms,
+  floatingActionSettings, onFloatingActionSettingsChange, isBiometricSupported, onBiometricSetup, onOpenTerms,
 }) => {
   // 画面状態: 一覧、検索、表示切替、各モーダルの開閉状態をここで管理する。
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,6 +46,7 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
   // 表示用の派生データ: 入力値からカテゴリと絞り込み結果を計算する。
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
   const categories = useMemo(() => [...new Set(passwords.map((password) => password.category))].sort(), [passwords]);
+  const registeredEmails = useMemo(() => [...new Set(passwords.map((password) => password.email).filter(Boolean))].sort(), [passwords]);
   const filteredPasswords = useMemo(() => passwords.filter((password) => {
     if (categoryFilter && password.category !== categoryFilter) return false;
     if (!normalizedQuery) return true;
@@ -101,7 +102,10 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
       setToastMessage('データをインポートしました');
     } catch (error) { console.error('インポートエラー:', error); setToastMessage('インポートファイルを読み込めませんでした'); }
   };
-  const saveAppSettings = () => { onAutoLockSettingsChange(autoLockDraft); setToastMessage('自動ロック設定を保存しました'); };
+  const updateAutoLockSettings = (settings: typeof autoLockDraft) => {
+    setAutoLockDraft(settings);
+    onAutoLockSettingsChange(settings);
+  };
   const changeMasterPassword = async () => {
     const error = await onMasterPasswordChange(currentMasterPassword, newMasterPassword, masterPasswordConfirmation);
     if (error) { setToastMessage(error); return; }
@@ -111,6 +115,7 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
   const editDetail = () => { if (!detailPassword) return; const password = detailPassword; closeDetail(); onOpenModal(password); };
   const deleteDetail = () => { if (!detailPassword) return; onDelete(detailPassword.id); closeDetail(); };
   const handleQuickScrollTop = () => { contentRef.current?.scrollToTop?.(500); };
+  const handleQuickScrollBottom = () => { contentRef.current?.scrollToBottom?.(500); };
 
   // 画面構成: 個別の表示責務は子コンポーネントへ委譲する。
   return <IonPage className="password-manager-page">
@@ -118,11 +123,11 @@ const PasswordManagerView: React.FC<PasswordManagerViewProps> = ({
     <IonContent className="password-manager-content" ref={contentRef} scrollEvents onIonScroll={(event) => setShowQuickActions((event.detail?.scrollTop ?? 0) > 120)}>
       <div className="header-section"><IonSearchbar onIonInput={(event) => setSearchQuery(event.detail.value ?? '')} placeholder="パスワードを検索" value={searchQuery} /><div className="category-filter"><IonSelect aria-label="カテゴリで絞り込み" interface="popover" onIonChange={(event) => setCategoryFilter(event.detail.value)} placeholder="すべてのカテゴリ" value={categoryFilter}><IonSelectOption value="">すべてのカテゴリ</IonSelectOption>{categories.map((category) => <IonSelectOption key={category} value={category}>{category}</IonSelectOption>)}</IonSelect></div></div>
       {loading ? <div className="loading">読み込み中...</div> : passwords.length === 0 ? <div className="empty-state"><p>パスワードが登録されていません</p></div> : filteredPasswords.length === 0 ? <div className="empty-state"><p>検索条件に一致するパスワードはありません</p></div> : <><PasswordTable passwords={filteredPasswords} visiblePasswordIds={visiblePasswordIds} allPasswordsVisible={allPasswordsVisible} onTogglePasswordVisibility={togglePasswordVisibility} onToggleAllPasswordsVisibility={toggleAllPasswordsVisibility} onCopy={handleCopy} onOpenDetail={setDetailPassword} onEdit={onOpenModal} onDelete={onDelete} /><PasswordCards passwords={filteredPasswords} visiblePasswordIds={visiblePasswordIds} onTogglePasswordVisibility={togglePasswordVisibility} onCopy={handleCopy} onOpenDetail={setDetailPassword} onEdit={onOpenModal} onDelete={onDelete} /></>}
-      <div className={`quick-action-stack ${showQuickActions ? 'visible' : ''}`}><button aria-label="上へ戻る" className="quick-action-button" onClick={handleQuickScrollTop} type="button"><IonIcon icon={chevronUpOutline} /></button><button aria-label="検索" className="quick-action-button" onClick={() => setIsSearchModalOpen(true)} type="button"><IonIcon icon={searchOutline} /></button><IonFabButton aria-label="新規追加" className="quick-fab-action" onClick={() => onOpenModal()}><IonIcon icon={addOutline} /></IonFabButton></div>
+      <div className={`quick-action-stack ${showQuickActions ? 'visible' : ''}`}>{floatingActionSettings.enabled && floatingActionSettings.showScrollTop && <button aria-label="上へ戻る" className="quick-action-button scroll-action-button" onClick={handleQuickScrollTop} type="button"><IonIcon icon={chevronUpOutline} /></button>}{floatingActionSettings.enabled && floatingActionSettings.showScrollBottom && <button aria-label="下へ移動" className="quick-action-button scroll-action-button" onClick={handleQuickScrollBottom} type="button"><IonIcon icon={chevronDownOutline} /></button>}<button aria-label="検索" className="quick-action-button" onClick={() => setIsSearchModalOpen(true)} type="button"><IonIcon icon={searchOutline} /></button><IonFabButton aria-label="新規追加" className="quick-fab-action" onClick={() => onOpenModal()}><IonIcon icon={addOutline} /></IonFabButton></div>
     </IonContent>
-    <PasswordFormModal isOpen={isModalOpen} editingId={editingId} formData={formData} categories={categories} isPasswordVisible={isFormPasswordVisible} onFormDataChange={onFormDataChange} onTogglePasswordVisibility={() => setIsFormPasswordVisible((visible) => !visible)} onOpenGenerator={openGenerator} onSave={onSave} onClose={() => { setIsFormPasswordVisible(false); onCloseModal(); }} />
+    <PasswordFormModal isOpen={isModalOpen} editingId={editingId} formData={formData} categories={categories} registeredEmails={registeredEmails} isPasswordVisible={isFormPasswordVisible} onFormDataChange={onFormDataChange} onTogglePasswordVisibility={() => setIsFormPasswordVisible((visible) => !visible)} onOpenGenerator={openGenerator} onSave={onSave} onClose={() => { setIsFormPasswordVisible(false); onCloseModal(); }} />
     <PasswordGeneratorModal isOpen={isGeneratorOpen} generatedPassword={generatedPassword} settings={generatorSettings} onSettingsChange={setGeneratorSettings} onRegenerate={() => setGeneratedPassword(generatePassword(generatorSettings))} onCopy={() => handleCopy(generatedPassword, '生成したパスワード')} onUse={() => { onFormDataChange({ ...formData, password: generatedPassword }); setIsGeneratorOpen(false); }} onClose={() => setIsGeneratorOpen(false)} />
-    <SettingsModal isOpen={isAppSettingsOpen} autoLockDraft={autoLockDraft} isBiometricSupported={isBiometricSupported} currentMasterPassword={currentMasterPassword} newMasterPassword={newMasterPassword} masterPasswordConfirmation={masterPasswordConfirmation} onAutoLockDraftChange={setAutoLockDraft} onCurrentMasterPasswordChange={setCurrentMasterPassword} onNewMasterPasswordChange={setNewMasterPassword} onMasterPasswordConfirmationChange={setMasterPasswordConfirmation} onExport={() => { setIsAppSettingsOpen(false); setIsExportConfirmOpen(true); }} onImport={() => importInputRef.current?.click()} onSaveAutoLock={saveAppSettings} onChangeMasterPassword={changeMasterPassword} onBiometricSetup={() => void onBiometricSetup()} onOpenTerms={() => { setIsAppSettingsOpen(false); onOpenTerms?.(); }} onClose={() => setIsAppSettingsOpen(false)} />
+    <SettingsModal isOpen={isAppSettingsOpen} autoLockDraft={autoLockDraft} isBiometricSupported={isBiometricSupported} currentMasterPassword={currentMasterPassword} newMasterPassword={newMasterPassword} masterPasswordConfirmation={masterPasswordConfirmation} onAutoLockChange={updateAutoLockSettings} floatingActionSettings={floatingActionSettings} onFloatingActionSettingsChange={onFloatingActionSettingsChange} onCurrentMasterPasswordChange={setCurrentMasterPassword} onNewMasterPasswordChange={setNewMasterPassword} onMasterPasswordConfirmationChange={setMasterPasswordConfirmation} onExport={() => { setIsAppSettingsOpen(false); setIsExportConfirmOpen(true); }} onImport={() => importInputRef.current?.click()} onChangeMasterPassword={changeMasterPassword} onBiometricSetup={() => void onBiometricSetup()} onOpenTerms={() => { setIsAppSettingsOpen(false); onOpenTerms?.(); }} onClose={() => setIsAppSettingsOpen(false)} />
     <input accept="application/json" className="import-input" onChange={importPasswords} ref={importInputRef} type="file" />
     <ExportConfirmationModal isOpen={isExportConfirmOpen} onConfirm={() => { setIsExportConfirmOpen(false); exportPasswords(); }} onClose={() => setIsExportConfirmOpen(false)} />
     <SearchModal isOpen={isSearchModalOpen} searchQuery={searchQuery} categoryFilter={categoryFilter} categories={categories} onSearchQueryChange={setSearchQuery} onCategoryChange={setCategoryFilter} onClear={() => { setSearchQuery(''); setCategoryFilter(''); }} onClose={() => setIsSearchModalOpen(false)} />

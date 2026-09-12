@@ -1,5 +1,6 @@
 import type { PasswordEntry } from '../../services/passwordDb';
 import type { AutoLockSettings } from '../../hooks/useAppController';
+import type { FloatingActionSettings } from '../../services/appStorage';
 
 export interface PasswordFormData {
   category: string;
@@ -26,6 +27,8 @@ export interface PasswordManagerViewProps {
   onImport: (entries: Omit<PasswordEntry, 'id' | 'createdAt' | 'updatedAt'>[]) => Promise<void>;
   autoLockSettings: AutoLockSettings;
   onAutoLockSettingsChange: (settings: AutoLockSettings) => void;
+  floatingActionSettings: FloatingActionSettings;
+  onFloatingActionSettingsChange: (settings: FloatingActionSettings) => void;
   isBiometricSupported: boolean;
   onBiometricSetup: () => Promise<boolean>;
   onMasterPasswordChange: (currentPassword: string, newPassword: string, confirmation: string) => Promise<string | null>;

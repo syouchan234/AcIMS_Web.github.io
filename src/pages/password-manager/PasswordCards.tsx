@@ -18,9 +18,9 @@ interface PasswordCardsProps {
 const PasswordCards: React.FC<PasswordCardsProps> = ({ passwords, visiblePasswordIds, onTogglePasswordVisibility, onCopy, onOpenDetail, onEdit, onDelete }) => (
   <div className="password-cards">{passwords.map((password) => {
     const isMasked = !(password.id !== undefined && visiblePasswordIds.has(password.id));
-    const renderField = (label: string, value: string, content?: ReactNode, maxLength = 32, emptyText = '未登録') => <li><strong>{label}</strong><span className="password-card-value ellipsis-text">{content ?? (value ? truncateText(value, maxLength) : emptyText)}</span><IonButton aria-label={`${label}をコピー`} disabled={!value} fill="clear" onClick={() => onCopy(value, label)} size="small" title={`${label}をコピー`}><IonIcon icon={copyOutline} slot="icon-only" /></IonButton></li>;
+    const renderField = (label: string, value: string, content?: ReactNode, maxLength = 32, emptyText = '') => <li><strong>{label}</strong><span className="password-card-value ellipsis-text">{content ?? (value ? truncateText(value, maxLength) : emptyText)}</span><IonButton aria-label={`${label}をコピー`} disabled={!value} fill="clear" onClick={() => onCopy(value, label)} size="small" title={`${label}をコピー`}><IonIcon icon={copyOutline} slot="icon-only" /></IonButton></li>;
     return <article className="password-card" key={password.id}>
-      <div className="password-card-header"><h2>{password.appName || '名称未設定'}</h2></div>
+      <div className="password-card-header"><h2>{password.appName}</h2></div>
       <ul className="password-card-fields">
         {renderField('カテゴリ', password.category)}
         {renderField('ID', password.userId)}

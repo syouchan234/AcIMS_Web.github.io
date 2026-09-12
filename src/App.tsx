@@ -17,6 +17,7 @@ import MainHome from './pages/MainHome';
 import PasswordManager from './pages/PasswordManager';
 import ProductLinks from './components/ProductLinks';
 import { useAppController } from './hooks/useAppController';
+import { loadFloatingActionSettings, saveFloatingActionSettings, type FloatingActionSettings } from './services/appStorage';
 import './App.css';
 
 import '@ionic/react/css/core.css';
@@ -37,6 +38,11 @@ setupIonicReact();
 
 const App: React.FC = () => {
   const [showTerms, setShowTerms] = useState(false);
+  const [floatingActionSettings, setFloatingActionSettings] = useState(loadFloatingActionSettings);
+  const updateFloatingActionSettings = (settings: FloatingActionSettings) => {
+    setFloatingActionSettings(settings);
+    saveFloatingActionSettings(settings);
+  };
   const {
     showSetup,
     showHome,
@@ -103,6 +109,9 @@ const App: React.FC = () => {
 
               <IonButton expand="block" onClick={handleSetup} className="auth-primary-action">
                 設定して開始
+              </IonButton>
+              <IonButton expand="block" fill="clear" onClick={goToHome} className="auth-secondary-action">
+                ホームに戻る
               </IonButton>
               <ProductLinks />
             </div>
@@ -176,6 +185,8 @@ const App: React.FC = () => {
           encryptionKey={encryptionKey}
           autoLockSettings={autoLockSettings}
           onAutoLockSettingsChange={updateAutoLockSettings}
+          floatingActionSettings={floatingActionSettings}
+          onFloatingActionSettingsChange={updateFloatingActionSettings}
           isBiometricSupported={isBiometricSupported}
           onBiometricSetup={setupBiometricAuthentication}
           onBack={goToHome}
